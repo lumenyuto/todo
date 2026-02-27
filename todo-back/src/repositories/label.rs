@@ -1,13 +1,13 @@
 use axum::async_trait;
 use sqlx::PgPool;
-use crate::models::label::{CreateLabel, Label};
+use crate::models::label::{CreateLabel, DeleteLabel, Label};
 use super::RepositoryError;
 
 #[async_trait]
 pub trait LabelRepository: Clone + std::marker::Send + std::marker::Sync + 'static {
     async fn create(&self, payload: CreateLabel) -> anyhow::Result<Label>;
-    async fn all(&self) -> anyhow::Result<Vec<Label>>;
-    async fn delete(&self, id: i32) -> anyhow::Result<()>;
+    async fn all(&self, user_id: i32) -> anyhow::Result<Vec<Label>>;
+    async fn delete(&self, payload: DeleteLabel) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -24,57 +24,50 @@ impl LabelRepositoryForDb {
 #[async_trait]
 impl LabelRepository for LabelRepositoryForDb {
     async fn create(&self, payload: CreateLabel) -> anyhow::Result<Label> {
-        let optional_label = sqlx::query_as::<_, Label>(
-            r#"
-select * from labels where name= $1
-        "#,
-        )
-        .bind(payload.name.clone())
-        .fetch_optional(&self.pool)
-        .await?;
-
-        if let Some(label) = optional_label {
-            return Err(RepositoryError::Duplicate(label.id).into());
-        }
-
         let label = sqlx::query_as::<_, Label>(
             r#"
-insert into labels ( name )
-values ( $1 )
+insert into labels (name, user_id)
+values($1, $2)
+on conflict (user_id, name) do update set name = excluded.name
 returning *
         "#,
         )
         .bind(payload.name.clone())
+        .bind(payload.user_id)
         .fetch_one(&self.pool)
         .await?;
         
         Ok(label)
     }
 
-    async fn all(&self) -> anyhow::Result<Vec<Label>> {
+    async fn all(&self, user_id: i32) -> anyhow::Result<Vec<Label>> {
         let labels = sqlx::query_as::<_, Label>(
             r#"
 select * from labels
+where user_id = $1
 order by labels.id asc;
         "#,
         )
+        .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
 
     Ok(labels)
     }
 
-    async fn delete(&self, id: i32) -> anyhow::Result<()> {
+    async fn delete(&self, payload: DeleteLabel) -> anyhow::Result<()> {
         sqlx::query(
             r#"
-delete from labels where id=$1
+delete from labels
+where id = $1 and user_id = $2
         "#,
         )
-        .bind(id)
+        .bind(payload.id)
+        .bind(payload.user_id)
         .execute(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => RepositoryError::NotFound(id),
+            sqlx::Error::RowNotFound => RepositoryError::NotFound(payload.id),
             _ => RepositoryError::Unexpected(e.to_string()),
         })?;
 
@@ -86,6 +79,8 @@ delete from labels where id=$1
 #[cfg(feature = "database-test")]
 mod test {
     use super::*;
+    use crate::models::user::CreateUser;
+    use crate::repositories::user::{UserRepository, UserRepositoryForDb};
     use dotenv::dotenv;
     use sqlx::PgPool;
     use std::env;
@@ -93,36 +88,43 @@ mod test {
     #[tokio::test]
     async fn crud_scenario() {
         dotenv().ok();
-        let database_url = &env::var("DATABASE_URL").expect("undifined [DATABASE_URL");
+        let database_url = &env::var("DATABASE_URL").expect("undifined [DATABASE_URL]");
         let pool = PgPool::connect(database_url)
             .await
             .expect(&format!("fail connect database, url is [{}]", database_url));
 
-        let repository = LabelRepositoryForDb::new(pool);
-        let label_text = "test_label";
-        
+        // テスト用ユーザーを作成
+        let user_repository = UserRepositoryForDb::new(pool.clone());
+        let test_user = user_repository
+            .create(CreateUser::new("test_label_user".to_string()))
+            .await
+            .expect("Failed to create test user");
+
+        let label_repository = LabelRepositoryForDb::new(pool.clone());
+        let test_label = "test label";
+
         // create
-        let label = repository
-            .create(CreateLabel::new(label_text.to_string()))
+        let label = label_repository
+            .create(CreateLabel::new(test_label.to_string(), test_user.id))
             .await
             .expect("[create] returned Err");
-        assert_eq!(label.name, label_text);
+        assert_eq!(label.name, test_label);
+        assert_eq!(label.user_id, test_user.id);
 
         // all
-        let labels = repository.all().await.expect("[all] returned Err");
+        let labels = label_repository.all(test_user.id).await.expect("[all] returned Err");
         let label = labels.last().unwrap();
-        assert_eq!(label.name, label_text);
+        assert_eq!(label.name, test_label);
 
         // delete
-        repository
-            .delete(label.id)
+        let _ = label_repository
+            .delete(DeleteLabel::new(label.id, test_user.id))
             .await
             .expect("[delete] returned Err");
     }
 }
 
 pub mod test_utils {
-    use anyhow::Context;
     use axum::async_trait;
     use std::{
         collections::HashMap,
@@ -158,20 +160,24 @@ pub mod test_utils {
         async fn create(& self, payload: CreateLabel) -> anyhow::Result<Label> {
             let mut store = self.write_store_ref();
             let id = (store.len() + 1) as i32;
-            let label = Label::new(id, payload.name.clone());
+            let label = Label::new(id, payload.name.clone(), payload.user_id);
             store.insert(id, label.clone());
             Ok(label)
         }
 
-        async fn all(&self) -> anyhow::Result<Vec<Label>> {
+        async fn all(&self, user_id: i32) -> anyhow::Result<Vec<Label>> {
             let store = self.read_store_ref();
-            let labels = Vec::from_iter(store.values().map(|label| label.clone()));
+            let labels = store
+                .values()
+                .filter(|label| label.user_id == user_id)
+                .cloned()
+                .collect();
             Ok(labels)
         }
 
-        async fn delete(&self, id: i32) -> anyhow::Result<()> {
+        async fn delete(&self, payload: DeleteLabel) -> anyhow::Result<()> {
             let mut store = self.write_store_ref();
-            store.remove(&id).ok_or(RepositoryError::NotFound(id))?;
+            store.remove(&payload.id).ok_or(RepositoryError::NotFound(payload.id))?;
             Ok(())
         }
     }
@@ -183,22 +189,23 @@ pub mod test_utils {
         async fn label_crud_scenario() {
             let name = "label name".to_string();
             let id = 1;
-            let expected = Label::new(id, name.clone());
+            let user_id = 1;
+            let expected = Label::new(id, name.clone(), user_id);
 
             // create
             let repository = LabelRepositoryForMemory::new();
             let label = repository
-                .create(CreateLabel { name })
+                .create(CreateLabel::new(name, user_id))
                 .await
                 .expect("failed create label");
             assert_eq!(expected, label);
 
             // all
-            let label = repository.all().await.unwrap();
+            let label = repository.all(user_id).await.unwrap();
             assert_eq!(vec![expected], label);
 
             // delete
-            let res = repository.delete(id).await;
+            let res = repository.delete(DeleteLabel::new(id, user_id)).await;
             assert!(res.is_ok())
         }
     }

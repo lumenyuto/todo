@@ -21,6 +21,7 @@ pub struct CreateTodo {
     pub label_ids: Vec<i32>,
 }
 
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Validate)]
 pub struct UpdateTodo {
     #[validate(length(min = 1, message = "Can not be empty"))]

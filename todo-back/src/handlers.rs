@@ -1,5 +1,6 @@
 pub mod label;
 pub mod todo;
+pub mod user;
 
 use axum::{
     async_trait,
@@ -7,11 +8,19 @@ use axum::{
     http::StatusCode,
     BoxError, Json,
 };
-use serde::de::DeserializeOwned;
+use serde::{
+    Deserialize,
+    de::DeserializeOwned,
+};
 use validator::Validate;
 
 #[derive(Debug)]
 pub struct ValidatedJson<T>(T);
+
+#[derive(Deserialize)]
+pub struct UserIdQuery {
+    pub user_id: i32,
+}
 
 #[async_trait]
 impl <T, B> FromRequest<B> for ValidatedJson<T>

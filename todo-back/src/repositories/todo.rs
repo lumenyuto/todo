@@ -56,13 +56,6 @@ fn fold_entities(rows: Vec<TodoWithLabelFromRow>) -> Vec<TodoEntity> {
     accum
 }
 
-fn fold_entity(row: TodoWithLabelFromRow) -> TodoEntity {
-    let todo_entities = fold_entities(vec![row]);
-    let todo = todo_entities.first().expect("expect 1 todo");
-
-    todo.clone()
-}
-
 #[async_trait]
 pub trait TodoRepository: Clone + std::marker::Send + 
 std::marker::Sync + 'static {
@@ -107,7 +100,7 @@ from unnest ($2) as t(id);
         "#,
         )
         .bind(row.id)
-        .bind(payload.labels)
+        .bind(payload.label_ids)
         .execute(&self.pool)
         .await?;
 
@@ -174,7 +167,7 @@ returning *
         .fetch_one(&self.pool)
         .await?;
 
-        if let Some(labels) = payload.labels {
+        if let Some(labels) = payload.label_ids {
             sqlx::query(
                 r#"
     delete from todo_labels where todo_id=$1
@@ -366,7 +359,7 @@ returning *
                 UpdateTodo {
                     text: Some(updated_text.to_string()),
                     completed: Some(true),
-                    labels: Some(vec![]),
+                    label_ids: Some(vec![]),
                 },
             )
             .await
@@ -460,7 +453,7 @@ pub mod test_utils {
         async fn create(&self, payload: CreateTodo) -> anyhow::Result<TodoEntity> {
             let mut store = self.write_store_ref();
             let id = (store.len() + 1) as i32;
-            let labels = self.resolve_labels(payload.labels);
+            let labels = self.resolve_labels(payload.label_ids);
             let todo = TodoEntity::new(id, payload.text.clone(), labels);
             store.insert(id, todo.clone());
             Ok(todo)
@@ -485,7 +478,7 @@ pub mod test_utils {
             let todo = store.get(&id).context(RepositoryError::NotFound(id))?;
             let text = payload.text.unwrap_or(todo.text.clone());
             let completed = payload.completed.unwrap_or(todo.completed);
-            let labels = match payload.labels {
+            let labels = match payload.label_ids {
                 Some(label_ids) => self.resolve_labels(label_ids),
                 None => todo.labels.clone(),
             };
@@ -541,7 +534,7 @@ pub mod test_utils {
                     UpdateTodo {
                         text: Some(text.clone()),
                         completed: Some(true),
-                        labels: Some(vec![]),
+                        label_ids: Some(vec![]),
                     },
                 )
                 .await

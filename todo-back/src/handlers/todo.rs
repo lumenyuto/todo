@@ -124,7 +124,7 @@ mod test {
         let req = build_req_with_json(
             "/todos",
             Method::POST,
-            r#"{ "text": "should_create_todo", "labels": [999] }"#.to_string(),
+            r#"{ "text": "should_create_todo", "label_ids": [999] }"#.to_string(),
         );
         let res = create_app(todo_repository, label_repository).oneshot(req).await.unwrap();
         let todo = res_to_todo(res).await;

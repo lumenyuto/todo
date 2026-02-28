@@ -1,5 +1,5 @@
 import { useEffect, useState, type FC } from 'react'
-import { Box, Stack, Typography } from '@mui/material'
+import { Box, Stack, Typography, Button } from '@mui/material'
 import TodoList from '../components/TodoList'
 import TodoForm from '../components/TodoForm'
 import SideNav from '../components/SideNav'
@@ -19,10 +19,20 @@ import type { Label, NewLabelPayload } from '../types/label'
 import type { NewTodoPayload, Todo, UpdateTodoPayload } from '../types/todo'
 
 const HomePage: FC = () => {
-    const { authUser } = useAuth()
+    const { authUser, logout } = useAuth()
     const [todos, setTodos] = useState<Todo[]>([])
     const [labels, setLabels] = useState<Label[]>([])
     const [filterLabelId, setFilterLabelId] = useState<number | null>(null)
+
+    useEffect(() => {
+        if (!authUser) return
+        ;(async () => {
+            const todos = await getTodoItems(user_id)
+            setTodos(todos)
+            const labelResponse = await getLabelItems(user_id)
+            setLabels(labelResponse)
+        })()
+    }, [authUser])
 
     if (!authUser) return
     const user_id = authUser.id
@@ -68,15 +78,6 @@ const HomePage: FC = () => {
         )
         : todos
 
-    useEffect(() => {
-        ;(async () => {
-            const todos = await getTodoItems(user_id)
-            setTodos(todos)
-            const labelResponse = await getLabelItems(user_id)
-            setLabels(labelResponse)
-        })()
-    }, [])
-
     return (
         <>
             <Box
@@ -94,6 +95,14 @@ const HomePage: FC = () => {
                 }}
             >
                 <Typography variant="h1">Todo App</Typography>
+                <Button 
+                    variant="outlined" 
+                    color="inherit" 
+                    onClick={logout}
+                    sx={{ ml: 'auto' }}
+                >
+                    ログアウト
+                </Button>
             </Box>
             <Box
                 sx={{

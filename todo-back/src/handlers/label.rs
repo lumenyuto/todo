@@ -5,16 +5,19 @@ use axum::{
     Json,
 };
 use std::sync::Arc;
-use crate::{models::label::{CreateLabel, DeleteLabel}};
-use crate::repositories::label::LabelRepository;
+use crate::{
+    models::label::{CreateLabel},
+    repositories::label::LabelRepository,
+};
 use super::{UserIdQuery, ValidatedJson};
 
 pub async fn create_label<T: LabelRepository>(
+    Query(query): Query<UserIdQuery>,
     ValidatedJson(payload): ValidatedJson<CreateLabel>,
     Extension(repository): Extension<Arc<T>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let label = repository
-        .create(payload)
+        .create(query.user_id, payload)
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
@@ -38,7 +41,7 @@ pub async fn delete_label<T: LabelRepository>(
     Extension(repository): Extension<Arc<T>>,
 ) -> StatusCode {
     repository
-        .delete(DeleteLabel::new(id, query.user_id))
+        .delete(id, query.user_id)
         .await
         .map(|_| StatusCode::NO_CONTENT)
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
@@ -107,9 +110,9 @@ mod test {
         let expected = Label::new(1, "should_create_label".to_string(), 1);
 
         let req = build_req_with_json(
-            "/labels",
+            "/labels?user_id=1",
             Method::POST,
-            r#"{ "name": "should_create_label" ,"user_id": 1 }"#.to_string(),
+            r#"{ "name": "should_create_label" }"#.to_string(),
         );
         let res = create_app(
             TodoRepositoryForMemory::new(labels.clone()),
@@ -129,11 +132,11 @@ mod test {
         let expected = Label::new(1, "should_get_all_label".to_string(), 1);
         let label_repository = LabelRepositoryForMemory::new();
         let _label = label_repository
-            .create(CreateLabel::new("should_get_all_label".to_string(), 1))
+            .create(1, CreateLabel::new("should_get_all_label".to_string()))
             .await
             .expect("failed create label");
 
-        let req = build_todo_req_with_empty(Method::GET, "/labels");
+        let req = build_todo_req_with_empty(Method::GET, "/labels?user_id=1");
         let res = create_app(TodoRepositoryForMemory::new(labels.clone()), label_repository, UserRepositoryForMemory::new())
             .oneshot(req)
             .await
@@ -152,10 +155,10 @@ mod test {
         let (labels, _label_ids) = label_fixture();
         let label_repository = LabelRepositoryForMemory::new();
         let _label = label_repository
-            .create(CreateLabel::new("should_delete_label".to_string(), 1))
+            .create(1, CreateLabel::new("should_delete_label".to_string()))
             .await
             .expect("failed create label");
-        let req = build_todo_req_with_empty(Method::DELETE, "/labels/1");
+        let req = build_todo_req_with_empty(Method::DELETE, "/labels/1?user_id=1");
         let res = create_app(TodoRepositoryForMemory::new(labels.clone()), label_repository, UserRepositoryForMemory::new())
             .oneshot(req)
             .await

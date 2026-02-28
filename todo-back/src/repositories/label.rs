@@ -1,13 +1,13 @@
 use axum::async_trait;
 use sqlx::PgPool;
-use crate::models::label::{CreateLabel, DeleteLabel, Label};
+use crate::models::label::{CreateLabel, Label};
 use super::RepositoryError;
 
 #[async_trait]
 pub trait LabelRepository: Clone + std::marker::Send + std::marker::Sync + 'static {
-    async fn create(&self, payload: CreateLabel) -> anyhow::Result<Label>;
+    async fn create(&self, user_id: i32, payload: CreateLabel) -> anyhow::Result<Label>;
     async fn all(&self, user_id: i32) -> anyhow::Result<Vec<Label>>;
-    async fn delete(&self, payload: DeleteLabel) -> anyhow::Result<()>;
+    async fn delete(&self, id: i32, user_id: i32) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -23,7 +23,7 @@ impl LabelRepositoryForDb {
 
 #[async_trait]
 impl LabelRepository for LabelRepositoryForDb {
-    async fn create(&self, payload: CreateLabel) -> anyhow::Result<Label> {
+    async fn create(&self, user_id: i32, payload: CreateLabel) -> anyhow::Result<Label> {
         let label = sqlx::query_as::<_, Label>(
             r#"
 insert into labels (name, user_id)
@@ -33,7 +33,7 @@ returning *
         "#,
         )
         .bind(payload.name.clone())
-        .bind(payload.user_id)
+        .bind(user_id)
         .fetch_one(&self.pool)
         .await?;
         
@@ -55,19 +55,19 @@ order by labels.id asc;
     Ok(labels)
     }
 
-    async fn delete(&self, payload: DeleteLabel) -> anyhow::Result<()> {
+    async fn delete(&self, id: i32, user_id: i32) -> anyhow::Result<()> {
         sqlx::query(
             r#"
 delete from labels
 where id = $1 and user_id = $2
         "#,
         )
-        .bind(payload.id)
-        .bind(payload.user_id)
+        .bind(id)
+        .bind(user_id)
         .execute(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => RepositoryError::NotFound(payload.id),
+            sqlx::Error::RowNotFound => RepositoryError::NotFound(id),
             _ => RepositoryError::Unexpected(e.to_string()),
         })?;
 
@@ -93,32 +93,33 @@ mod test {
             .await
             .expect(&format!("fail connect database, url is [{}]", database_url));
 
-        // テスト用ユーザーを作成
+        // create test user
         let user_repository = UserRepositoryForDb::new(pool.clone());
         let test_user = user_repository
-            .create(CreateUser::new("test_label_user".to_string()))
+            .create(CreateUser::new("test label_user".to_string()))
             .await
             .expect("Failed to create test user");
+        let test_user_id = test_user.id;
 
         let label_repository = LabelRepositoryForDb::new(pool.clone());
         let test_label = "test label";
 
         // create
         let label = label_repository
-            .create(CreateLabel::new(test_label.to_string(), test_user.id))
+            .create(test_user_id, CreateLabel::new(test_label.to_string()))
             .await
             .expect("[create] returned Err");
         assert_eq!(label.name, test_label);
-        assert_eq!(label.user_id, test_user.id);
+        assert_eq!(label.user_id, test_user_id);
 
         // all
-        let labels = label_repository.all(test_user.id).await.expect("[all] returned Err");
+        let labels = label_repository.all(test_user_id).await.expect("[all] returned Err");
         let label = labels.last().unwrap();
         assert_eq!(label.name, test_label);
 
         // delete
         let _ = label_repository
-            .delete(DeleteLabel::new(label.id, test_user.id))
+            .delete(label.id, test_user_id)
             .await
             .expect("[delete] returned Err");
     }
@@ -157,10 +158,10 @@ pub mod test_utils {
 
     #[async_trait]
     impl LabelRepository for LabelRepositoryForMemory {
-        async fn create(& self, payload: CreateLabel) -> anyhow::Result<Label> {
+        async fn create(&self, user_id: i32, payload: CreateLabel) -> anyhow::Result<Label> {
             let mut store = self.write_store_ref();
             let id = (store.len() + 1) as i32;
-            let label = Label::new(id, payload.name.clone(), payload.user_id);
+            let label = Label::new(id, payload.name.clone(), user_id);
             store.insert(id, label.clone());
             Ok(label)
         }
@@ -175,9 +176,9 @@ pub mod test_utils {
             Ok(labels)
         }
 
-        async fn delete(&self, payload: DeleteLabel) -> anyhow::Result<()> {
+        async fn delete(&self, id: i32, user_id: i32) -> anyhow::Result<()> {
             let mut store = self.write_store_ref();
-            store.remove(&payload.id).ok_or(RepositoryError::NotFound(payload.id))?;
+            store.remove(&id).ok_or(RepositoryError::NotFound(id))?;
             Ok(())
         }
     }
@@ -195,7 +196,7 @@ pub mod test_utils {
             // create
             let repository = LabelRepositoryForMemory::new();
             let label = repository
-                .create(CreateLabel::new(name, user_id))
+                .create(user_id, CreateLabel::new(name))
                 .await
                 .expect("failed create label");
             assert_eq!(expected, label);
@@ -205,7 +206,7 @@ pub mod test_utils {
             assert_eq!(vec![expected], label);
 
             // delete
-            let res = repository.delete(DeleteLabel::new(id, user_id)).await;
+            let res = repository.delete(id, user_id).await;
             assert!(res.is_ok())
         }
     }

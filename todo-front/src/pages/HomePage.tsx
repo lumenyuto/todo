@@ -24,22 +24,25 @@ const HomePage: FC = () => {
     const [labels, setLabels] = useState<Label[]>([])
     const [filterLabelId, setFilterLabelId] = useState<number | null>(null)
 
+    if (!authUser) return
+    const user_id = authUser.id
+
     const onSubmit = async (payload: NewTodoPayload) => {
         if (!payload.text) return
-        await addTodoItem(payload)
-        const todos = await getTodoItems()
+        await addTodoItem(user_id, payload)
+        const todos = await getTodoItems(user_id)
         setTodos(todos)
     }
 
     const onUpdate = async (updateTodo: UpdateTodoPayload) => {
-        await updateTodoItem(updateTodo)
-        const todos = await getTodoItems()
+        await updateTodoItem(user_id, updateTodo)
+        const todos = await getTodoItems(user_id)
         setTodos(todos)
     }
 
     const onDelete = async (id: number) => {
-        await deleteTodoItem(id)
-        const todos = await getTodoItems()
+        await deleteTodoItem(id, user_id)
+        const todos = await getTodoItems(user_id)
         setTodos(todos)
     }
 
@@ -49,13 +52,13 @@ const HomePage: FC = () => {
 
     const onSubmitNewLabel = async (newLabel: NewLabelPayload) => {
         if (!labels.some((label) => label.name === newLabel.name)) {
-            const res = await addLabelItem(newLabel)
+            const res = await addLabelItem(user_id, newLabel)
             setLabels([...labels, res])
         }
     }
 
     const onDeleteLabel = async (id: number) => {
-        await deleteLabelItem(id)
+        await deleteLabelItem(id, user_id)
         setLabels((prev) => prev.filter((label) => label.id !== id))
     }
 
@@ -67,9 +70,9 @@ const HomePage: FC = () => {
 
     useEffect(() => {
         ;(async () => {
-            const todos = await getTodoItems()
+            const todos = await getTodoItems(user_id)
             setTodos(todos)
-            const labelResponse = await getLabelItems()
+            const labelResponse = await getLabelItems(user_id)
             setLabels(labelResponse)
         })()
     }, [])

@@ -96,8 +96,7 @@ const HomePage: FC = () => {
             >
                 <Typography variant="h1">Todo App</Typography>
                 <Button 
-                    variant="outlined" 
-                    color="inherit" 
+                    variant="contained" 
                     onClick={logout}
                     sx={{ ml: 'auto' }}
                 >

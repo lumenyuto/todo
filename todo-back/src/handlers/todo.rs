@@ -17,7 +17,7 @@ use crate::{
 };
 use super::ValidatedJson;
 
-pub async fn create_personal_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn create_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
     State(state): State<AppState<Label, Team, Todo, User>>,
     ValidatedJson(payload): ValidatedJson<CreateTodo>,
@@ -83,7 +83,7 @@ pub async fn find_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoR
     Ok((StatusCode::OK, Json(todo)))
 }
 
-pub async fn all_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn all_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
     State(state): State<AppState<Label, Team, Todo, User>>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -94,6 +94,33 @@ pub async fn all_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRe
 
     let todo = state.todo_repository
         .all(user.id)
+        .await
+        .unwrap();
+    Ok((StatusCode::OK, Json(todo)))
+}
+
+pub async fn all_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+    auth_user: AuthenticatedUser,
+    State(state): State<AppState<Label, Team, Todo, User>>,
+    Path(team_id): Path<i32>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let user = state.user_repository
+        .find_by_sub(auth_user.sub)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    let is_member = state
+        .team_repository
+        .is_member(team_id, user.id)
+        .await
+        .or(Err(StatusCode::INSUFFICIENT_STORAGE))?;
+
+    if !is_member {
+        return Err(StatusCode::FORBIDDEN)
+    }
+
+    let todo = state.todo_repository
+        .all_by_team(team_id)
         .await
         .unwrap();
     Ok((StatusCode::OK, Json(todo)))

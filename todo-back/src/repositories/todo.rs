@@ -73,6 +73,7 @@ std::marker::Sync + 'static {
     fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
     fn find(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
     fn all(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<TodoEntity>>> + Send;
+    fn all_by_team(&self, team_id: i32) -> impl Future<Output = anyhow::Result<Vec<TodoEntity>>> + Send;
     fn update(&self, id: i32, user_id: i32, payload: UpdateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
     fn delete(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<()>> + Send;
 }
@@ -162,6 +163,27 @@ order by todos.id desc;
         "#,
         )
         .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let todos = fold_entities(items);
+
+        Ok(todos)
+    }
+
+    async fn all_by_team(&self, team_id: i32) -> anyhow::Result<Vec<TodoEntity>> {
+        let items = sqlx::query_as::<_, TodoWithLabelFromRow>(
+            r#"
+select todos.id, todos.text, todos.completed, todos.user_id,
+       labels.id as label_id, labels.name as label_name, labels.user_id as label_user_id
+from todos
+            left outer join todo_labels tl on todos.id = tl.todo_id
+            left outer join labels on labels.id = tl.label_id
+where todos.user_id = $1
+order by todos.id desc;
+        "#,
+        )
+        .bind(team_id)
         .fetch_all(&self.pool)
         .await?;
 
@@ -526,6 +548,10 @@ pub mod test_utils {
                 .filter(|todo| todo.user_id == user_id)
                 .cloned()
                 .collect())
+        }
+
+        async fn all_by_team(&self, team_id: i32) -> anyhow::Result<Vec<TodoEntity>> {
+            todo!()
         }
 
         async fn update(&self, id: i32, user_id: i32, payload: UpdateTodo) -> anyhow::Result<TodoEntity> {

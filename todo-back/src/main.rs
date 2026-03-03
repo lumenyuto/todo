@@ -56,7 +56,11 @@ async fn main() {
         TodoRepositoryForDb::new(pool.clone()),
         UserRepositoryForDb::new(pool.clone()),
     );
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let port: u16 = env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse()
+        .expect("PORT must be a number");
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr)
         .await
         .unwrap();
@@ -121,7 +125,12 @@ fn create_app<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository
         .with_state(state)
         .layer(
             CorsLayer::new()
-                .allow_origin("http://localhost:3001".parse::<HeaderValue>().unwrap())
+                .allow_origin(
+                    env::var("CORS_ORIGIN")
+                        .unwrap_or_else(|_| "http://localhost:3001".to_string())
+                        .parse::<HeaderValue>()
+                        .unwrap()
+                )
                 .allow_methods(Any)
                 .allow_headers(vec![CONTENT_TYPE, AUTHORIZATION]),
         )

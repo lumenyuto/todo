@@ -24,7 +24,7 @@ use tokio::net::TcpListener;
 use handlers::{
     label::{all_label, create_label, delete_label},
     team::{create_team},
-    todo::{all_todo, create_todo, delete_todo, find_todo, update_todo},
+    todo::{all_todo, create_team_todo, create_personal_todo, delete_todo, find_todo, update_todo},
     user::{create_user, find_me, update_user},
 };
 use repositories::{
@@ -50,10 +50,11 @@ async fn main() {
         .expect(&format!("fail connect database, url is [{}]", database_url));
 
     let app = create_app(
-        TodoRepositoryForDb::new(pool.clone()),
+        
         LabelRepositoryForDb::new(pool.clone()),
-        UserRepositoryForDb::new(pool.clone()),
         TeamRepositoryForDb::new(pool.clone()),
+        TodoRepositoryForDb::new(pool.clone()),
+        UserRepositoryForDb::new(pool.clone()),
     );
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = TcpListener::bind(addr)
@@ -66,48 +67,56 @@ async fn main() {
 }
 
 #[derive(Clone)]
-struct AppState<Todo, Label, User, Team> {
-    todo_repository: Arc<Todo>,
+struct AppState<Label, Team, Todo, User> {
     label_repository: Arc<Label>,
-    user_repository: Arc<User>,
     team_repository: Arc<Team>,
+    todo_repository: Arc<Todo>,
+    user_repository: Arc<User>,
 }
 
-fn create_app<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
-    todo_repository: Todo,
+fn create_app<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     label_repository: Label,
-    user_repository: User,
     team_repository: Team,
+    todo_repository: Todo,
+    user_repository: User,
 ) -> Router {
     let state = AppState {
-        todo_repository: Arc::new(todo_repository),
         label_repository: Arc::new(label_repository),
+        team_repository: Arc::new(team_repository),
+        todo_repository: Arc::new(todo_repository),
         user_repository: Arc::new(user_repository),
-        team_repository: Arc::new(team_repository)
     };
 
     Router::new()
         .route("/", get(root))
-        .route("/todos", post(create_todo::<Todo, Label, User, Team>).get(all_todo::<Todo, Label, User, Team>))
+        .route("/todos", post(create_personal_todo::<Label, Team, Todo, User>).get(all_todo::<Label, Team, Todo, User>))
         .route(
             "/todos/{id}",
-            get(find_todo::<Todo, Label, User, Team>)
-                .delete(delete_todo::<Todo, Label, User, Team>)
-                .patch(update_todo::<Todo, Label, User, Team>),
+            get(find_todo::<Label, Team, Todo, User>)
+                .delete(delete_todo::<Label, Team, Todo, User>)
+                .patch(update_todo::<Label, Team, Todo, User>),
         )
         .route(
             "/labels",
-            post(create_label::<Todo, Label, User, Team>).get(all_label::<Todo, Label, User, Team>),
+            post(create_label::<Label, Team, Todo, User>).get(all_label::<Label, Team, Todo, User>),
         )
-        .route("/labels/{id}", delete(delete_label::<Todo, Label, User, Team>))
+        .route("/labels/{id}", delete(delete_label::<Label, Team, Todo, User>))
         .route(
             "/users",
-            post(create_user::<Todo, Label, User, Team>),
+            post(create_user::<Label, Team, Todo, User>),
         )
         .route(
             "/users/me",
-            get(find_me::<Todo, Label, User, Team>)
-                .patch(update_user::<Todo, Label, User, Team>),
+            get(find_me::<Label, Team, Todo, User>)
+                .patch(update_user::<Label, Team, Todo, User>),
+        )
+        .route(
+            "/teams",
+            post(create_team::<Label, Team, Todo, User>)
+        )
+        .route(
+            "/teams/{id}/todos",
+            post(create_team_todo::<Label, Team, Todo, User>),
         )
         .with_state(state)
         .layer(

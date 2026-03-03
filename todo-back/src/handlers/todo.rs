@@ -4,7 +4,6 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use std::sync::Arc;
 use crate::{
     AppState,
     auth::AuthenticatedUser,
@@ -18,9 +17,9 @@ use crate::{
 };
 use super::ValidatedJson;
 
-pub async fn create_todo<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn create_personal_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     ValidatedJson(payload): ValidatedJson<CreateTodo>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -29,16 +28,47 @@ pub async fn create_todo<Todo: TodoRepository, Label: LabelRepository, User: Use
         .or(Err(StatusCode::NOT_FOUND))?;
 
     let todo = state.todo_repository
-        .create(user.id, payload)
+        .create(user.id, None, payload)
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
     Ok((StatusCode::CREATED, Json(todo)))
 }
 
-pub async fn find_todo<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn create_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
+    Path(team_id): Path<i32>,
+    ValidatedJson(payload): ValidatedJson<CreateTodo>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let user = state
+        .user_repository
+        .find_by_sub(auth_user.sub)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    let is_member = state
+        .team_repository
+        .is_member(team_id, user.id)
+        .await
+        .or(Err(StatusCode::INSUFFICIENT_STORAGE))?;
+
+    if !is_member {
+        return Err(StatusCode::FORBIDDEN)
+    }
+
+    let todo = state
+        .todo_repository
+        .create(user.id, Some(team_id), payload)
+        .await
+        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    Ok((StatusCode::CREATED, Json(todo)))
+}
+
+pub async fn find_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+    auth_user: AuthenticatedUser,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -53,9 +83,9 @@ pub async fn find_todo<Todo: TodoRepository, Label: LabelRepository, User: UserR
     Ok((StatusCode::OK, Json(todo)))
 }
 
-pub async fn all_todo<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn all_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
         .find_by_sub(auth_user.sub)
@@ -69,9 +99,9 @@ pub async fn all_todo<Todo: TodoRepository, Label: LabelRepository, User: UserRe
     Ok((StatusCode::OK, Json(todo)))
 }
 
-pub async fn update_todo<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn update_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     Path(id): Path<i32>,
     ValidatedJson(payload): ValidatedJson<UpdateTodo>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -87,9 +117,9 @@ pub async fn update_todo<Todo: TodoRepository, Label: LabelRepository, User: Use
     Ok((StatusCode::CREATED, Json(todo)))
 }
 
-pub async fn delete_todo<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn delete_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, StatusCode> {
     let user = state.user_repository
@@ -116,6 +146,7 @@ mod test {
         },
         repositories::{
             label::test_utils::LabelRepositoryForMemory,
+            team::test_utils::TeamRepositoryForMemory,
             todo::test_utils::TodoRepositoryForMemory,
             user::test_utils::UserRepositoryForMemory,
         },
@@ -181,11 +212,14 @@ mod test {
 
     #[tokio::test]
     async fn should_create_todo() {
+        todo!();
         let (labels, _label_ids) = label_fixture();
         let user_id = 1;
-        let expected = TodoEntity::new(1, "should_create_todo".to_string(), labels.clone(), user_id);
-        let todo_repository = TodoRepositoryForMemory::new(labels.clone());
+        let team_id = 1;
+        let expected = TodoEntity::new(1, "should_create_todo".to_string(), labels.clone(), user_id, Some(team_id));
         let label_repository = LabelRepositoryForMemory::new();
+        let team_repository = TeamRepositoryForMemory::new();
+        let todo_repository = TodoRepositoryForMemory::new(labels.clone());
         let user_repository = UserRepositoryForMemory::new();
         seed_test_user(&user_repository).await;
         let req = build_req_with_json(
@@ -193,7 +227,7 @@ mod test {
             Method::POST,
             r#"{ "text": "should_create_todo", "label_ids": [999] }"#.to_string(),
         );
-        let res = create_app(todo_repository, label_repository, user_repository).oneshot(req).await.unwrap();
+        let res = create_app(label_repository, team_repository, todo_repository, user_repository).oneshot(req).await.unwrap();
         let todo = res_to_todo(res).await;
         assert_eq!(expected, todo);
     }
@@ -202,17 +236,19 @@ mod test {
     async fn should_find_todo() {
         let (labels, label_ids) = label_fixture();
         let user_id = 1;
-        let expected = TodoEntity::new(1, "should_find_todo".to_string(), labels.clone(), user_id);
+        let team_id = 1;
+        let expected = TodoEntity::new(1, "should_find_todo".to_string(), labels.clone(), user_id, Some(team_id));
+        let label_repository = LabelRepositoryForMemory::new();
+        let team_repository = TeamRepositoryForMemory::new();
         let todo_repository = TodoRepositoryForMemory::new(labels.clone());
+        let user_repository = UserRepositoryForMemory::new();
         let _todo = todo_repository
-            .create(user_id, CreateTodo::new("should_find_todo".to_string(), label_ids))
+            .create(user_id, Some(team_id), CreateTodo::new("should_find_todo".to_string(), label_ids))
             .await
             .expect("failed create todo");
-        let label_repository = LabelRepositoryForMemory::new();
-        let user_repository = UserRepositoryForMemory::new();
         seed_test_user(&user_repository).await;
         let req = build_todo_req_with_empty(Method::GET, "/todos/1");
-        let res = create_app(todo_repository, label_repository, user_repository).oneshot(req).await.unwrap();
+        let res = create_app(label_repository, team_repository, todo_repository, user_repository).oneshot(req).await.unwrap();
         let todo = res_to_todo(res).await;
         assert_eq!(expected, todo);
     }
@@ -221,17 +257,19 @@ mod test {
     async fn should_get_all_todos() {
         let (labels, label_ids) = label_fixture();
         let user_id = 1;
-        let expected = TodoEntity::new(1, "should_get_all_todos".to_string(), labels.clone(), user_id);
+        let team_id = 1;
+        let expected = TodoEntity::new(1, "should_get_all_todos".to_string(), labels.clone(), user_id, Some(team_id));
+        let label_repository = LabelRepositoryForMemory::new();
+        let team_repository = TeamRepositoryForMemory::new();
         let todo_repository = TodoRepositoryForMemory::new(labels.clone());
+        let user_repository = UserRepositoryForMemory::new();
         let _todo = todo_repository
-            .create(user_id, CreateTodo::new("should_get_all_todos".to_string(), label_ids))
+            .create(user_id, Some(team_id), CreateTodo::new("should_get_all_todos".to_string(), label_ids))
             .await
             .expect("failed create todo");
-        let label_repository = LabelRepositoryForMemory::new();
-        let user_repository = UserRepositoryForMemory::new();
         seed_test_user(&user_repository).await;
         let req = build_todo_req_with_empty(Method::GET, "/todos");
-        let res = create_app(todo_repository, label_repository, user_repository).oneshot(req).await.unwrap();
+        let res = create_app(label_repository, team_repository, todo_repository, user_repository).oneshot(req).await.unwrap();
         let bytes = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
         let body: String = String::from_utf8(bytes.to_vec()).unwrap();
         let todos: Vec<TodoEntity> = serde_json::from_str(&body)
@@ -243,14 +281,16 @@ mod test {
     async fn should_update_todo() {
         let (labels, label_ids) = label_fixture();
         let user_id = 1;
-        let expected = TodoEntity::new(1, "should_update_todo".to_string(), labels.clone(), user_id);
+        let team_id = 1;
+        let expected = TodoEntity::new(1, "should_update_todo".to_string(), labels.clone(), user_id, Some(team_id));
+        let label_repository = LabelRepositoryForMemory::new();
+        let team_repository = TeamRepositoryForMemory::new();
         let todo_repository = TodoRepositoryForMemory::new(labels.clone());
+        let user_repository = UserRepositoryForMemory::new();
         let _todo = todo_repository
-            .create(user_id, CreateTodo::new("before_update_todo".to_string(), label_ids))
+            .create(user_id, Some(team_id), CreateTodo::new("before_update_todo".to_string(), label_ids))
             .await
             .expect("failed create todo");
-        let label_repository = LabelRepositoryForMemory::new();
-        let user_repository = UserRepositoryForMemory::new();
         seed_test_user(&user_repository).await;
         let req = build_req_with_json(
             "/todos/1",
@@ -260,7 +300,7 @@ mod test {
                 "completed": false
             }"#.to_string(),
         );
-        let res = create_app(todo_repository, label_repository, user_repository).oneshot(req).await.unwrap();
+        let res = create_app(label_repository, team_repository, todo_repository, user_repository).oneshot(req).await.unwrap();
         let todo = res_to_todo(res).await;
         assert_eq!(expected, todo);
     }
@@ -269,16 +309,18 @@ mod test {
     async fn should_delete_todo() {
         let (labels, label_ids) = label_fixture();
         let user_id = 1;
+        let team_id = 1;
+        let label_repository = LabelRepositoryForMemory::new();
+        let team_repository = TeamRepositoryForMemory::new();
         let todo_repository = TodoRepositoryForMemory::new(labels.clone());
+        let user_repository = UserRepositoryForMemory::new();
         let _todo = todo_repository
-            .create(user_id, CreateTodo::new("should_delete_todo".to_string(), label_ids))
+            .create(user_id, Some(team_id), CreateTodo::new("should_delete_todo".to_string(), label_ids))
             .await
             .expect("failed create todo");
-        let label_repository = LabelRepositoryForMemory::new();
-        let user_repository = UserRepositoryForMemory::new();
         seed_test_user(&user_repository).await;
         let req = build_todo_req_with_empty(Method::DELETE, "/todos/1");
-        let res = create_app(todo_repository, label_repository, user_repository).oneshot(req).await.unwrap();
+        let res = create_app(label_repository, team_repository, todo_repository, user_repository).oneshot(req).await.unwrap();
         assert_eq!(StatusCode::NO_CONTENT, res.status());
     }
 }

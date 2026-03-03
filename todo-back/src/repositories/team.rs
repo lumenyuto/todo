@@ -71,6 +71,7 @@ pub trait TeamRepository: Clone + std::marker::Send + std::marker::Sync + 'stati
     // fn all_by_user(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<TeamEntity>>> + Send;
     // fn update(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<TeamEntity>> + Send;
     // fn felete(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn is_member(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<bool>> + Send;
 }
 
 #[derive(Debug, Clone)]
@@ -130,19 +131,34 @@ from teams
             left outer join team_users tu on teams.id = tu.team_id
             left outer join users on users.id = tu.user_id
 where teams.id = $1
-            "#,
-            )
-            .bind(id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| match e {
-                sqlx::Error::RowNotFound => RepositoryError::NotFound(id),
-                _ => RepositoryError::Unexpected(e.to_string()),
-            })?;
+        "#,
+        )
+        .bind(id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => RepositoryError::NotFound(id),
+            _ => RepositoryError::Unexpected(e.to_string()),
+        })?;
 
         let teams = fold_entities(items);
         let team = teams.first().ok_or(RepositoryError::NotFound(id))?;
         Ok(team.clone())
+    }
+
+    async fn is_member(&self, id: i32, user_id: i32) -> anyhow::Result<bool> {
+        let row = sqlx::query(
+            r#"
+select 1 from team_users
+where team_id = $1 and user_id = $2
+        "#,
+        )
+        .bind(id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.is_some())
     }
 }
 
@@ -150,4 +166,50 @@ where teams.id = $1
 #[cfg(feature = "database-test")]
 mod test {
     use super::*;
+}
+
+#[cfg(test)]
+pub mod test_utils {
+    use anyhow::Context;
+    use::std::{
+        collections::HashMap,
+        sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    };
+    use super::*;
+
+    type TeamData = HashMap<i32, TeamEntity>;
+
+    #[derive(Debug, Clone)]
+    pub struct TeamRepositoryForMemory {
+        store: Arc<RwLock<TeamData>>,
+    }
+
+    impl TeamRepositoryForMemory {
+        pub fn new() -> Self {
+            TeamRepositoryForMemory {
+                store: Arc::default(),
+            }
+        }
+        fn write_store_ref(&self) -> RwLockWriteGuard<TeamData> {
+            self.store.write().unwrap()
+        }
+
+        fn read_store_ref(&self) -> RwLockReadGuard<TeamData> {
+            self.store.read().unwrap()
+        }
+    }
+
+    impl TeamRepository for TeamRepositoryForMemory {
+        async fn create(&self, payload: CreateTeam) -> anyhow::Result<TeamEntity> {
+            todo!()
+        }
+
+        async fn find(&self, id: i32) -> anyhow::Result<TeamEntity> {
+            todo!()
+        }
+
+        async fn is_member(&self, id: i32, user_id: i32) -> anyhow::Result<bool>{
+            todo!()
+        }
+    }
 }

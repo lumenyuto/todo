@@ -18,9 +18,9 @@ use crate::{
 };
 use super::ValidatedJson;
 
-pub async fn create_user<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn create_user<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     _user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     ValidatedJson(payload): ValidatedJson<CreateUser>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -31,9 +31,9 @@ pub async fn create_user<Todo: TodoRepository, Label: LabelRepository, User: Use
     Ok((StatusCode::CREATED, Json(user)))
 }
 
-pub async fn find_me<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn find_me<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
         .find_by_sub(auth_user.sub)
@@ -43,9 +43,9 @@ pub async fn find_me<Todo: TodoRepository, Label: LabelRepository, User: UserRep
     Ok((StatusCode::OK, Json(user)))
 }
 
-pub async fn update_user<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn update_user<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     ValidatedJson(payload): ValidatedJson<UpdateUser>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -67,6 +67,7 @@ mod test {
         },
         repositories::{
             label::test_utils::LabelRepositoryForMemory,
+            team::test_utils::TeamRepositoryForMemory,
             todo::test_utils::TodoRepositoryForMemory,
             user::test_utils::UserRepositoryForMemory,
         },
@@ -141,13 +142,14 @@ mod test {
             ),
         );
         let res = create_app(
-            TodoRepositoryForMemory::new(labels.clone()),
             LabelRepositoryForMemory::new(),
+            TeamRepositoryForMemory::new(),
+            TodoRepositoryForMemory::new(labels.clone()),
             UserRepositoryForMemory::new(),
-        )
-        .oneshot(req)
-        .await
-        .unwrap();
+            )
+            .oneshot(req)
+            .await
+            .unwrap();
         let user = res_to_user(res).await;
 
         assert_eq!(expected, user);
@@ -174,8 +176,9 @@ mod test {
 
         let req = build_req_with_empty(Method::GET, "/users/me");
         let res = create_app(
-            TodoRepositoryForMemory::new(labels.clone()),
             LabelRepositoryForMemory::new(),
+            TeamRepositoryForMemory::new(),
+            TodoRepositoryForMemory::new(labels.clone()),
             user_repository,
         )
         .oneshot(req)

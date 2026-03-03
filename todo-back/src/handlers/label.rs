@@ -18,9 +18,9 @@ use crate::{
 };
 use super::ValidatedJson;
 
-pub async fn create_label<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn create_label<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     ValidatedJson(payload): ValidatedJson<CreateLabel>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -36,9 +36,9 @@ pub async fn create_label<Todo: TodoRepository, Label: LabelRepository, User: Us
     Ok((StatusCode::CREATED, Json(label)))
 }
 
-pub async fn all_label<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn all_label<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
         .find_by_sub(auth_user.sub)
@@ -52,9 +52,9 @@ pub async fn all_label<Todo: TodoRepository, Label: LabelRepository, User: UserR
     Ok((StatusCode::OK, Json(labels)))
 }
 
-pub async fn delete_label<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn delete_label<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, StatusCode> {
     let user = state.user_repository
@@ -80,6 +80,7 @@ mod test {
         },
         repositories::{
             label::test_utils::LabelRepositoryForMemory,
+            team::test_utils::TeamRepositoryForMemory,
             todo::test_utils::TodoRepositoryForMemory,
             user::test_utils::UserRepositoryForMemory,
         },
@@ -156,8 +157,9 @@ mod test {
             r#"{ "name": "should_create_label" }"#.to_string(),
         );
         let res = create_app(
-            TodoRepositoryForMemory::new(labels.clone()),
             LabelRepositoryForMemory::new(),
+            TeamRepositoryForMemory::new(),
+            TodoRepositoryForMemory::new(labels.clone()),
             user_repository,
         )
         .oneshot(req)
@@ -180,10 +182,15 @@ mod test {
         seed_test_user(&user_repository).await;
 
         let req = build_req_with_empty(Method::GET, "/labels");
-        let res = create_app(TodoRepositoryForMemory::new(labels.clone()), label_repository, user_repository)
-            .oneshot(req)
-            .await
-            .unwrap();
+        let res = create_app(
+            label_repository,
+            TeamRepositoryForMemory::new(),
+            TodoRepositoryForMemory::new(labels.clone()),
+            user_repository,
+        )
+        .oneshot(req)
+        .await
+        .unwrap();
         let bytes = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
         let body: String = String::from_utf8(bytes.to_vec()).unwrap();
         let labels: Vec<Label> = serde_json::from_str(&body).expect(&format!(
@@ -204,10 +211,15 @@ mod test {
         let user_repository = UserRepositoryForMemory::new();
         seed_test_user(&user_repository).await;
         let req = build_req_with_empty(Method::DELETE, "/labels/1");
-        let res = create_app(TodoRepositoryForMemory::new(labels.clone()), label_repository, user_repository)
-            .oneshot(req)
-            .await
-            .unwrap();
+        let res = create_app(
+            label_repository,
+            TeamRepositoryForMemory::new(),
+            TodoRepositoryForMemory::new(labels.clone()),
+            user_repository,
+        )
+        .oneshot(req)
+        .await
+        .unwrap();
         assert_eq!(StatusCode::NO_CONTENT, res.status());
     }
 }

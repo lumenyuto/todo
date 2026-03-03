@@ -11,6 +11,7 @@ struct TodoWithLabelFromRow {
     text: String,
     completed: bool,
     user_id: i32,
+    team_id: Option<i32>,
     label_id: Option<i32>,
     label_name: Option<String>,
     label_user_id: Option<i32>,
@@ -61,6 +62,7 @@ fn fold_entities(rows: Vec<TodoWithLabelFromRow>) -> Vec<TodoEntity> {
             completed: row.completed,
             labels,
             user_id: row.user_id,
+            team_id: row.team_id,
         });
     }
     accum
@@ -68,7 +70,7 @@ fn fold_entities(rows: Vec<TodoWithLabelFromRow>) -> Vec<TodoEntity> {
 
 pub trait TodoRepository: Clone + std::marker::Send +
 std::marker::Sync + 'static {
-    fn create(&self, user_id: i32, payload: CreateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
+    fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
     fn find(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
     fn all(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<TodoEntity>>> + Send;
     fn update(&self, id: i32, user_id: i32, payload: UpdateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
@@ -87,19 +89,20 @@ impl TodoRepositoryForDb {
 }
 
 impl TodoRepository for TodoRepositoryForDb {
-    async fn create(&self, user_id: i32, payload: CreateTodo) -> anyhow::Result<TodoEntity> {
+    async fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> anyhow::Result<TodoEntity> {
         let mut tx = self.pool
             .begin()
             .await?;
         let row = sqlx::query_as::<_, TodoFromRow>(
             r#"
-insert into todos (text, completed, user_id)
-values ($1, false, $2)
+insert into todos (text, completed, user_id, team_id)
+values ($1, false, $2, $3, $4)
 returning id, text, completed
             "#,
             )
             .bind(payload.text.clone())
             .bind(user_id)
+            .bind(team_id)
             .fetch_one(&mut *tx)
             .await?;
 
@@ -258,9 +261,17 @@ where id = $1 and user_id = $2
 mod test {
     use super::*;
     use crate::models::user::CreateUser;
-    use crate::repositories::user::{UserRepository, UserRepositoryForDb};
-    use crate::repositories::label::{LabelRepository, LabelRepositoryForDb};
-    use crate::models::label::CreateLabel;
+    use crate::{
+        repositories::{
+            label::{LabelRepository, LabelRepositoryForDb},
+            team::{TeamRepository, TeamRepositoryForDb},
+            user::{UserRepository, UserRepositoryForDb},
+        },
+        models::{
+            label::CreateLabel,
+            team::CreateTeam,
+        },
+    };
     use dotenvy::dotenv;
     use sqlx::PgPool;
     use std::env;
@@ -268,6 +279,7 @@ mod test {
     #[test]
     fn fold_entities_test() {
         let user_id = 1;
+        let team_id = 1;
         let label_1 = Label {
             id: 1,
             name: String::from("label 1"),
@@ -284,6 +296,7 @@ mod test {
                 text: String::from("todo 1"),
                 completed: false,
                 user_id,
+                team_id: Some(team_id),
                 label_id: Some(label_1.id),
                 label_name: Some(label_1.name.clone()),
                 label_user_id: Some(user_id),
@@ -293,6 +306,7 @@ mod test {
                 text: String::from("todo 1"),
                 completed: false,
                 user_id,
+                team_id: Some(team_id),
                 label_id: Some(label_2.id),
                 label_name: Some(label_2.name.clone()),
                 label_user_id: Some(user_id),
@@ -302,6 +316,7 @@ mod test {
                 text: String::from("todo 2"),
                 completed: false,
                 user_id,
+                team_id: Some(team_id),
                 label_id: Some(label_1.id),
                 label_name: Some(label_1.name.clone()),
                 label_user_id: Some(user_id),
@@ -316,12 +331,14 @@ mod test {
                     String::from("todo 1"),
                     vec![label_1.clone(), label_2.clone()],
                     user_id,
+                    Some(team_id),
                 ),
                 TodoEntity::new(
                     2,
                     String::from("todo 2"),
                     vec![label_1.clone()],
                     user_id,
+                    Some(team_id),
                 ),
             ]
         );
@@ -350,12 +367,19 @@ mod test {
             .await
             .expect("Failed to create test_todo_label");
 
-        let repository = TodoRepositoryForDb::new(pool.clone());
-        let todo_text = "test_text";
+        // create test team
+        let team_repository = TeamRepositoryForDb::new(pool.clone());
+        let test_team = team_repository
+            .create(CreateTeam::new("test_todo_team".to_string(), vec![test_user_id]))
+            .await
+            .expect("Failed to create test_todo_label");
+        let test_team_id = test_team.id;
 
         // create
+        let repository = TodoRepositoryForDb::new(pool.clone());
+        let todo_text = "test_text";
         let created = repository
-            .create(test_user_id, CreateTodo::new(todo_text.to_string(), vec![label.id]))
+            .create(test_user_id, Some(test_team_id), CreateTodo::new(todo_text.to_string(), vec![label.id]))
             .await
             .expect("[create] returned Err");
 
@@ -478,11 +502,11 @@ pub mod test_utils {
     }
 
     impl TodoRepository for TodoRepositoryForMemory {
-        async fn create(&self, user_id: i32, payload: CreateTodo) -> anyhow::Result<TodoEntity> {
+        async fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> anyhow::Result<TodoEntity> {
             let mut store = self.write_store_ref();
             let id = (store.len() + 1) as i32;
             let labels = self.resolve_labels(payload.label_ids);
-            let todo = TodoEntity::new(id, payload.text.clone(), labels, user_id);
+            let todo = TodoEntity::new(id, payload.text.clone(), labels, user_id, team_id);
             store.insert(id, todo.clone());
             Ok(todo)
         }
@@ -513,7 +537,7 @@ pub mod test_utils {
                 Some(label_ids) => self.resolve_labels(label_ids),
                 None => todo.labels.clone(),
             };
-            let todo = TodoEntity::new(id, text, labels, user_id);
+            let todo = TodoEntity::new(id, text, labels, user_id, None);
             let todo = TodoEntity {
                 completed,
                 ..todo
@@ -537,14 +561,15 @@ pub mod test_utils {
             let text = "todo_text".to_string();
             let id = 1;
             let user_id = 1;
+            let team_id = 1;
             let label = Label::new(id, "todo_label".to_string(), user_id);
             let labels = vec![label.clone()];
-            let expected = TodoEntity::new(id, text.clone(), labels.clone(), user_id);
+            let expected = TodoEntity::new(id, text.clone(), labels.clone(), user_id, None);
 
             // create
             let repository = TodoRepositoryForMemory::new(labels.clone());
             let todo = repository
-                .create(user_id, CreateTodo::new(text, vec![label.id]))
+                .create(user_id, Some(team_id), CreateTodo::new(text, vec![label.id]))
                 .await
                 .expect("failed create todo");
             assert_eq!(expected, todo);
@@ -581,6 +606,7 @@ pub mod test_utils {
                     completed: true,
                     labels: vec![],
                     user_id,
+                    team_id: Some(team_id),
                 },
                 todo
             );

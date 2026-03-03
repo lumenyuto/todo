@@ -11,16 +11,19 @@ pub struct TodoEntity {
     pub completed: bool,
     pub labels: Vec<Label>,
     pub user_id: i32,
+    pub team_id: Option<i32>,
+
 }
 
 impl TodoEntity {
-    pub fn new(id: i32, text:String, labels: Vec<Label>, user_id: i32) -> Self {
+    pub fn new(id: i32, text:String, labels: Vec<Label>, user_id: i32, team_id: Option<i32>) -> Self {
         Self {
             id,
             text,
             completed: false,
             labels,
             user_id,
+            team_id,
         }
     }
 }

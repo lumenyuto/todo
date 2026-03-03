@@ -30,7 +30,7 @@ pub struct CreateTeam {
 }
 
 impl CreateTeam {
-    fn new(name: String, user_ids: Vec<i32>) -> Self {
+    pub fn new(name: String, user_ids: Vec<i32>) -> Self {
         Self {
             name,
             user_ids,

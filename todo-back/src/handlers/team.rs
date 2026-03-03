@@ -17,9 +17,9 @@ use crate::{
 };
 use super::ValidatedJson;
 
-pub async fn create_team<Todo: TodoRepository, Label: LabelRepository, User: UserRepository, Team: TeamRepository>(
+pub async fn create_team<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     _auth_user: AuthenticatedUser,
-    State(state): State<AppState<Todo, Label, User, Team>>,
+    State(state): State<AppState<Label, Team, Todo, User>>,
     ValidatedJson(payload): ValidatedJson<CreateTeam>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let team = state.team_repository

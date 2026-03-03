@@ -24,9 +24,16 @@ import {
   addUserItem,
   updateUserName,
 } from '../lib/api/user'
+import {
+  getTeamItems,
+  createTeamItem,
+  getTeamTodoItems,
+  addTeamTodoItem,
+} from '../lib/api/team'
 
 import type { Label, NewLabelPayload } from '../types/label'
 import type { NewTodoPayload, Todo, UpdateTodoPayload } from '../types/todo'
+import type { Team, NewTeamPayload } from '../types/team'
 
 export const HomePage: FC = () => {
   const { user, getAccessTokenSilently, logout } = useAuth0()
@@ -36,6 +43,8 @@ export const HomePage: FC = () => {
   const [userName, setUserName] = useState('')
   const [isEditingUserName, setIsEditingUserName] = useState(false)
   const [tempName, setTempName] = useState('')
+  const [teams, setTeams] = useState<Team[]>([])
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -49,39 +58,71 @@ export const HomePage: FC = () => {
         },
       )
       setUserName(User.name)
-      const [labels, todos] = await Promise.all([
+      const [labels, todos, teams] = await Promise.all([
         getLabelItems(token),
         getTodoItems(token),
+        getTeamItems(token).catch(() => [] as Team[]),
       ])
       setLabels(labels)
       setTodos(todos)
+      setTeams(teams)
     })()
   }, [getAccessTokenSilently, user])
 
   const getToken = () => getAccessTokenSilently()
 
+  const fetchTodos = async (token: string, teamId: number | null) => {
+    if (teamId !== null) {
+      return await getTeamTodoItems(token, teamId)
+    }
+    return await getTodoItems(token)
+  }
+
+  //todo
   const onSubmit = async (payload: NewTodoPayload) => {
     if (!payload.text) return
     const token = await getToken()
-    await addTodoItem(token, payload)
-    const todos = await getTodoItems(token)
+    if (selectedTeamId !== null) {
+      await addTeamTodoItem(token, selectedTeamId, payload)
+    } else {
+      await addTodoItem(token, payload)
+    }
+    const todos = await fetchTodos(token, selectedTeamId)
     setTodos(todos)
   }
 
   const onUpdate = async (updateTodo: UpdateTodoPayload) => {
     const token = await getToken()
     await updateTodoItem(token, updateTodo)
-    const todos = await getTodoItems(token)
+    const todos = await fetchTodos(token, selectedTeamId)
     setTodos(todos)
   }
 
   const onDelete = async (id: number) => {
     const token = await getToken()
     await deleteTodoItem(token, id)
-    const todos = await getTodoItems(token)
+    const todos = await fetchTodos(token, selectedTeamId)
     setTodos(todos)
   }
 
+  
+  // team
+  const onSelectTeam = async (teamId: number | null) => {
+    setSelectedTeamId(teamId)
+    setFilterLabelId(null)
+    const token = await getToken()
+    const todos = await fetchTodos(token, teamId)
+    setTodos(todos)
+  }
+
+  const onSubmitNewTeam = async (payload: NewTeamPayload) => {
+    const token = await getToken()
+    await createTeamItem(token, payload)
+    const teams = await getTeamItems(token).catch(() => [] as Team[])
+    setTeams(teams)
+  }
+
+  // label
   const onSelectLabel = (label: Label | null) => {
     setFilterLabelId(label?.id ?? null)
   }
@@ -100,6 +141,7 @@ export const HomePage: FC = () => {
     setLabels(labels)
   }
 
+  // user
   const onUpdateUser = async () => {
     const token = await getToken()
     const updateUser = await updateUserName(token, { name: tempName.trim() })
@@ -112,6 +154,8 @@ export const HomePage: FC = () => {
       todo.labels.some((label) => label.id === filterLabelId)
     )
     : todos
+
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId)
 
   return (
     <>
@@ -170,9 +214,9 @@ export const HomePage: FC = () => {
               </IconButton>
             </>
           )}
-          <Button 
-            variant="outlined" 
-            size="small" 
+          <Button
+            variant="outlined"
+            size="small"
             onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
             sx={{ borderRadius: '20px', textTransform: 'none' }}
           >
@@ -190,6 +234,7 @@ export const HomePage: FC = () => {
           width: 200,
           zIndex: 2,
           left: 0,
+          overflowY: 'auto',
       }}
     >
       <SideNav
@@ -198,6 +243,10 @@ export const HomePage: FC = () => {
         filterLabelId={filterLabelId}
         onSubmitNewLabel={onSubmitNewLabel}
         onDeleteLabel={onDeleteLabel}
+        teams={teams}
+        selectedTeamId={selectedTeamId}
+        onSelectTeam={onSelectTeam}
+        onSubmitNewTeam={onSubmitNewTeam}
       />
     </Box>
     <Box
@@ -211,6 +260,11 @@ export const HomePage: FC = () => {
     >
         <Box maxWidth={700} width="100%">
           <Stack spacing={5}>
+            {selectedTeam && (
+              <Typography variant="h2" color="primary">
+                {selectedTeam.name}
+              </Typography>
+            )}
             <TodoForm onSubmit={onSubmit} labels={labels} />
             <TodoList
               todos={dispTodo}

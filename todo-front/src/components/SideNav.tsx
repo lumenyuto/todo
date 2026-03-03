@@ -15,9 +15,13 @@ import {
 import LabelIcon from '@mui/icons-material/Label'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import GroupsIcon from '@mui/icons-material/Groups'
+import AddIcon from '@mui/icons-material/Add'
+import PersonIcon from '@mui/icons-material/Person'
 
 import { modalInnerStyle } from '../styles/modal'
 import type { Label, NewLabelPayload } from '../types/label'
+import type { Team, NewTeamPayload } from '../types/team'
 
 type Props = {
   labels: Label[]
@@ -25,6 +29,10 @@ type Props = {
   onSelectLabel: (label: Label | null) => void
   onSubmitNewLabel: (newLabel: NewLabelPayload) => void
   onDeleteLabel: (id: number) => void
+  teams: Team[]
+  selectedTeamId: number | null
+  onSelectTeam: (teamId: number | null) => void
+  onSubmitNewTeam: (payload: NewTeamPayload) => void
 }
 
 export const SideNav: FC<Props> = ({
@@ -33,19 +41,77 @@ export const SideNav: FC<Props> = ({
   onSelectLabel,
   onSubmitNewLabel,
   onDeleteLabel,
+  teams,
+  selectedTeamId,
+  onSelectTeam,
+  onSubmitNewTeam,
 }) => {
   const [editName, setEditName] = useState('')
   const [openLabelModal, setOpenLabelModal] = useState(false)
+  const [openTeamModal, setOpenTeamModal] = useState(false)
+  const [newTeamName, setNewTeamName] = useState('')
+  const [newTeamUserIds, setNewTeamUserIds] = useState('')
 
-  const onSubmit = () => {
+  const onSubmitLabel = () => {
     if (!editName) return
     onSubmitNewLabel({ name: editName })
     setEditName('')
   }
 
+  const onSubmitTeam = () => {
+    if (!newTeamName) return
+    const userIds = newTeamUserIds
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s !== '')
+      .map(Number)
+      .filter((n) => !isNaN(n))
+    onSubmitNewTeam({ name: newTeamName, user_ids: userIds })
+    setNewTeamName('')
+    setNewTeamUserIds('')
+    setOpenTeamModal(false)
+  }
+
   return (
     <>
       <List>
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={() => onSelectTeam(null)}
+            selected={selectedTeamId === null}
+          >
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <PersonIcon fontSize="small" />
+              <span>My Todos</span>
+            </Stack>
+          </ListItemButton>
+        </ListItem>
+
+        <ListSubheader>Teams</ListSubheader>
+        {teams.map((team) => (
+          <ListItem key={team.id} disablePadding>
+            <ListItemButton
+              onClick={() =>
+                onSelectTeam(team.id === selectedTeamId ? null : team.id)
+              }
+              selected={team.id === selectedTeamId}
+            >
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <GroupsIcon fontSize="small" />
+                <span>{team.name}</span>
+              </Stack>
+            </ListItemButton>
+          </ListItem>
+        ))}
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => setOpenTeamModal(true)}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <AddIcon fontSize="small" />
+              <span>create team</span>
+            </Stack>
+          </ListItemButton>
+        </ListItem>
+
         <ListSubheader>Labels</ListSubheader>
         {labels.map((label) => (
           <ListItem key={label.id} disablePadding>
@@ -84,7 +150,7 @@ export const SideNav: FC<Props> = ({
                 onChange={(e) => setEditName(e.target.value)}
               />
               <Box textAlign="right">
-                <Button onClick={onSubmit}>submit</Button>
+                <Button onClick={onSubmitLabel}>submit</Button>
               </Box>
             </Stack>
             <Stack spacing={1}>
@@ -105,6 +171,34 @@ export const SideNav: FC<Props> = ({
                 </Stack>
               ))}
             </Stack>
+          </Stack>
+        </Box>
+      </Modal>
+
+      <Modal open={openTeamModal} onClose={() => setOpenTeamModal(false)}>
+        <Box sx={modalInnerStyle}>
+          <Stack spacing={3}>
+            <Typography variant="subtitle1">create team</Typography>
+            <TextField
+              label="team name"
+              variant="filled"
+              fullWidth
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+            />
+            <TextField
+              label="member user IDs (comma separated)"
+              variant="filled"
+              fullWidth
+              value={newTeamUserIds}
+              onChange={(e) => setNewTeamUserIds(e.target.value)}
+              placeholder="1, 2, 3"
+            />
+            <Box textAlign="right">
+              <Button onClick={onSubmitTeam} variant="contained">
+                create
+              </Button>
+            </Box>
           </Stack>
         </Box>
       </Modal>

@@ -5,6 +5,8 @@ export type Todo = {
   text: string
   completed: boolean
   labels: Label[]
+  user_id: number
+  team_id: number | null
 }
 
 export type NewTodoPayload = {

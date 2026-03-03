@@ -128,7 +128,7 @@ from unnest ($2) as t(id);
     async fn find(&self, id: i32, user_id: i32) -> anyhow::Result<TodoEntity> {
         let items = sqlx::query_as::<_, TodoWithLabelFromRow>(
             r#"
-select todos.id, todos.text, todos.completed, todos.user_id,
+select todos.id, todos.text, todos.completed, todos.user_id, todos.team_id,
        labels.id as label_id, labels.name as label_name, labels.user_id as label_user_id
 from todos
             left outer join todo_labels tl on todos.id = tl.todo_id
@@ -153,7 +153,7 @@ where todos.id = $1 and todos.user_id = $2;
     async fn all(&self, user_id: i32) -> anyhow::Result<Vec<TodoEntity>> {
         let items = sqlx::query_as::<_, TodoWithLabelFromRow>(
             r#"
-select todos.id, todos.text, todos.completed, todos.user_id,
+select todos.id, todos.text, todos.completed, todos.user_id, todos.team_id,
        labels.id as label_id, labels.name as label_name, labels.user_id as label_user_id
 from todos
             left outer join todo_labels tl on todos.id = tl.todo_id
@@ -174,12 +174,12 @@ order by todos.id desc;
     async fn all_by_team(&self, team_id: i32) -> anyhow::Result<Vec<TodoEntity>> {
         let items = sqlx::query_as::<_, TodoWithLabelFromRow>(
             r#"
-select todos.id, todos.text, todos.completed, todos.user_id,
+select todos.id, todos.text, todos.completed, todos.user_id, todos.team_id,
        labels.id as label_id, labels.name as label_name, labels.user_id as label_user_id
 from todos
             left outer join todo_labels tl on todos.id = tl.todo_id
             left outer join labels on labels.id = tl.label_id
-where todos.user_id = $1
+where todos.team_id = $1
 order by todos.id desc;
         "#,
         )

@@ -97,7 +97,7 @@ impl TodoRepository for TodoRepositoryForDb {
         let row = sqlx::query_as::<_, TodoFromRow>(
             r#"
 insert into todos (text, completed, user_id, team_id)
-values ($1, false, $2, $3, $4)
+values ($1, false, $2, $3)
 returning id, text, completed
             "#,
             )

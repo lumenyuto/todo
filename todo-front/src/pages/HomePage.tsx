@@ -158,7 +158,7 @@ export const HomePage: FC = () => {
   const selectedTeam = teams.find((t) => t.id === selectedTeamId)
 
   return (
-    <>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Box
         sx={{
           backgroundColor: 'white',
@@ -167,7 +167,7 @@ export const HomePage: FC = () => {
           alignItems: 'center',
           position: 'fixed',
           top: 0,
-          p: 2,
+          p: { xs: 1, sm: 2 },
           width: '100%',
           height: 80,
           zIndex: 3,
@@ -178,7 +178,7 @@ export const HomePage: FC = () => {
           direction="row"
           alignItems="center"
           justifyContent="flex-end"
-          gap={2}
+          gap={{ xs: 1, sm: 2 }}
           sx={{ flex: 1 }}
         >
           <Avatar
@@ -224,57 +224,61 @@ export const HomePage: FC = () => {
           </Button>
         </Stack>
       </Box>
-    <Box
-      sx={{
-          backgroundColor: 'white',
-          borderRight: '1px solid gray',
-          position: 'fixed',
-          top: 80,
-          height: 'calc(100% - 80px)',
-          width: 200,
-          zIndex: 2,
-          left: 0,
-          overflowY: 'auto',
-      }}
-    >
-      <SideNav
-        labels={labels}
-        onSelectLabel={onSelectLabel}
-        filterLabelId={filterLabelId}
-        onSubmitNewLabel={onSubmitNewLabel}
-        onDeleteLabel={onDeleteLabel}
-        teams={teams}
-        selectedTeamId={selectedTeamId}
-        onSelectTeam={onSelectTeam}
-        onSubmitNewTeam={onSubmitNewTeam}
-      />
-    </Box>
-    <Box
-      sx={{
+      <Box
+        sx={{
           display: 'flex',
-          justifyContent: 'center',
-          p: 5,
-          mt: 10,
-          ml: '200px'
-      }}
-    >
-        <Box maxWidth={700} width="100%">
-          <Stack spacing={5}>
-            {selectedTeam && (
-              <Typography variant="h2" color="primary">
-                {selectedTeam.name}
-              </Typography>
-            )}
-            <TodoForm onSubmit={onSubmit} labels={labels} />
-            <TodoList
-              todos={dispTodo}
-              labels={labels}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-            />
-          </Stack>
+          mt: '80px', // ヘッダーの高さ分下げる
+          height: 'calc(100vh - 80px)', // 画面の高さからヘッダー分を引く
+        }}
+      >
+        <Box
+          sx={{
+            backgroundColor: 'white',
+            borderRight: '1px solid gray',
+            width: { xs: '35%', sm: '200px' }, // スマホ(xs)では画面幅の35%、タブレット以上(sm)では200px固定
+            flexShrink: 0, // 画面幅が縮んでもサイドバーの比率を維持する
+            overflowY: 'auto', // メニューが増えたら独立してスクロール
+          }}
+        >
+          <SideNav
+            labels={labels}
+            onSelectLabel={onSelectLabel}
+            filterLabelId={filterLabelId}
+            onSubmitNewLabel={onSubmitNewLabel}
+            onDeleteLabel={onDeleteLabel}
+            teams={teams}
+            selectedTeamId={selectedTeamId}
+            onSelectTeam={onSelectTeam}
+            onSubmitNewTeam={onSubmitNewTeam}
+          />
+        </Box>
+        <Box
+          sx={{
+            flex: 1, // 残りの横幅をすべて使う
+            display: 'flex',
+            justifyContent: 'center',
+            p: { xs: 2, sm: 5 }, // スマホでは周囲の余白を小さくする
+            overflowY: 'auto', // メインコンテンツ側も独立してスクロール
+          }}
+        >
+          <Box maxWidth={700} width="100%">
+            <Stack spacing={5}>
+              {selectedTeam && (
+                <Typography variant="h2" color="primary">
+                  {selectedTeam.name}
+                </Typography>
+              )}
+              <TodoForm onSubmit={onSubmit} labels={labels} />
+              <TodoList
+                todos={dispTodo}
+                labels={labels}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            </Stack>
+          </Box>
         </Box>
       </Box>
-    </>
+    </Box>
   )
 }

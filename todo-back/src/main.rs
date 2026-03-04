@@ -1,4 +1,4 @@
-mod auth;
+mod middlewares;
 mod handlers;
 mod models;
 mod repositories;

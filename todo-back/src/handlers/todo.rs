@@ -6,7 +6,7 @@ use axum::{
 };
 use crate::{
     AppState,
-    auth::AuthenticatedUser,
+    middlewares::auth::AuthenticatedUser,
     models::todo::{CreateTodo, UpdateTodo},
     repositories::{
         label::LabelRepository,

@@ -47,13 +47,13 @@ pub async fn create_team_todo<Label: LabelRepository, Team: TeamRepository, Todo
         .await
         .or(Err(StatusCode::NOT_FOUND))?;
 
-    let is_member = state
+    let is_authorized = state
         .team_repository
         .is_member(team_id, user.id)
         .await
-        .or(Err(StatusCode::INSUFFICIENT_STORAGE))?;
+        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    if !is_member {
+    if !is_authorized {
         return Err(StatusCode::FORBIDDEN)
     }
 
@@ -66,7 +66,7 @@ pub async fn create_team_todo<Label: LabelRepository, Team: TeamRepository, Todo
     Ok((StatusCode::CREATED, Json(todo)))
 }
 
-pub async fn find_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn find_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
     State(state): State<AppState<Label, Team, Todo, User>>,
     Path(id): Path<i32>,
@@ -76,10 +76,18 @@ pub async fn find_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoR
         .await
         .or(Err(StatusCode::NOT_FOUND))?;
 
-    let todo = state.todo_repository
-        .find(id, user.id)
+    let todo = state
+        .todo_repository
+        .find(id)
         .await
         .or(Err(StatusCode::NOT_FOUND))?;
+
+    let is_authorized = todo.user_id == user.id;
+
+    if !is_authorized {
+        return Err(StatusCode::FORBIDDEN)
+    }
+
     Ok((StatusCode::OK, Json(todo)))
 }
 
@@ -109,13 +117,13 @@ pub async fn all_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: T
         .await
         .or(Err(StatusCode::NOT_FOUND))?;
 
-    let is_member = state
+    let is_authorized = state
         .team_repository
         .is_member(team_id, user.id)
         .await
         .or(Err(StatusCode::INSUFFICIENT_STORAGE))?;
 
-    if !is_member {
+    if !is_authorized {
         return Err(StatusCode::FORBIDDEN)
     }
 
@@ -126,7 +134,7 @@ pub async fn all_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: T
     Ok((StatusCode::OK, Json(todo)))
 }
 
-pub async fn update_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn update_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
     State(state): State<AppState<Label, Team, Todo, User>>,
     Path(id): Path<i32>,
@@ -137,14 +145,64 @@ pub async fn update_todo<Label: LabelRepository, Team: TeamRepository, Todo: Tod
         .await
         .or(Err(StatusCode::NOT_FOUND))?;
 
-    let todo = state.todo_repository
-        .update(id, user.id, payload)
+    let todo = state
+        .todo_repository
+        .find(id)
         .await
         .or(Err(StatusCode::NOT_FOUND))?;
-    Ok((StatusCode::CREATED, Json(todo)))
+
+    let is_authorized = todo.user_id == user.id;
+
+    if !is_authorized {
+        return Err(StatusCode::FORBIDDEN)
+    }
+
+    let updated_todo = state.todo_repository
+        .update(id, payload)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    Ok((StatusCode::OK, Json(updated_todo)))
 }
 
-pub async fn delete_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn update_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+    auth_user: AuthenticatedUser,
+    State(state): State<AppState<Label, Team, Todo, User>>,
+    Path((team_id, todo_id)): Path<(i32, i32)>,
+    ValidatedJson(payload): ValidatedJson<UpdateTodo>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let user = state.user_repository
+        .find_by_sub(auth_user.sub)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    let is_member = state
+        .team_repository
+        .is_member(team_id, user.id)
+        .await
+        .or(Err(StatusCode::INSUFFICIENT_STORAGE))?;
+
+    let todo = state
+        .todo_repository
+        .find(todo_id)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    let is_authorized = is_member && todo.team_id == Some(team_id);
+
+    if !is_authorized {
+        return Err(StatusCode::FORBIDDEN)
+    }
+
+    let updated_todo = state.todo_repository
+        .update(todo_id, payload)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    Ok((StatusCode::OK, Json(updated_todo)))
+}
+
+pub async fn delete_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     auth_user: AuthenticatedUser,
     State(state): State<AppState<Label, Team, Todo, User>>,
     Path(id): Path<i32>,
@@ -154,11 +212,60 @@ pub async fn delete_todo<Label: LabelRepository, Team: TeamRepository, Todo: Tod
         .await
         .or(Err(StatusCode::NOT_FOUND))?;
 
-    state.todo_repository
-        .delete(id, user.id)
+    let todo = state
+        .todo_repository
+        .find(id)
         .await
-        .map(|_| StatusCode::NO_CONTENT)
-        .or(Err(StatusCode::NOT_FOUND))
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    let is_authorized = todo.user_id == user.id;
+
+    if !is_authorized {
+        return Err(StatusCode::FORBIDDEN)
+    }
+
+    state.todo_repository
+        .delete(id)
+        .await
+        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn delete_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+    auth_user: AuthenticatedUser,
+    State(state): State<AppState<Label, Team, Todo, User>>,
+    Path((team_id, todo_id)): Path<(i32, i32)>,
+) -> Result<StatusCode, StatusCode> {
+    let user = state.user_repository
+        .find_by_sub(auth_user.sub)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    let is_member = state
+        .team_repository
+        .is_member(team_id, user.id)
+        .await
+        .or(Err(StatusCode::INSUFFICIENT_STORAGE))?;
+
+    let todo = state
+        .todo_repository
+        .find(todo_id)
+        .await
+        .or(Err(StatusCode::NOT_FOUND))?;
+
+    let is_authorized = is_member && todo.team_id == Some(team_id);
+
+    if !is_authorized {
+        return Err(StatusCode::FORBIDDEN)
+    }
+
+    state.todo_repository
+        .delete(todo_id)
+        .await
+        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[cfg(test)]

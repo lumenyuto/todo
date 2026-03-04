@@ -71,11 +71,11 @@ fn fold_entities(rows: Vec<TodoWithLabelFromRow>) -> Vec<TodoEntity> {
 pub trait TodoRepository: Clone + std::marker::Send +
 std::marker::Sync + 'static {
     fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
-    fn find(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
+    fn find(&self, id: i32) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
     fn all(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<TodoEntity>>> + Send;
     fn all_by_team(&self, team_id: i32) -> impl Future<Output = anyhow::Result<Vec<TodoEntity>>> + Send;
-    fn update(&self, id: i32, user_id: i32, payload: UpdateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
-    fn delete(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn update(&self, id: i32, payload: UpdateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
+    fn delete(&self, id: i32) -> impl Future<Output = anyhow::Result<()>> + Send;
 }
 
 #[derive(Debug, Clone)]
@@ -121,11 +121,11 @@ from unnest ($2) as t(id);
 
         tx.commit().await?;
 
-        let todo = self.find(row.id, user_id).await?;
+        let todo = self.find(row.id).await?;
         Ok(todo)
     }
 
-    async fn find(&self, id: i32, user_id: i32) -> anyhow::Result<TodoEntity> {
+    async fn find(&self, id: i32) -> anyhow::Result<TodoEntity> {
         let items = sqlx::query_as::<_, TodoWithLabelFromRow>(
             r#"
 select todos.id, todos.text, todos.completed, todos.user_id, todos.team_id,
@@ -133,11 +133,10 @@ select todos.id, todos.text, todos.completed, todos.user_id, todos.team_id,
 from todos
             left outer join todo_labels tl on todos.id = tl.todo_id
             left outer join labels on labels.id = tl.label_id
-where todos.id = $1 and todos.user_id = $2;
+where todos.id = $1
         "#,
         )
         .bind(id)
-        .bind(user_id)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| match e {
@@ -192,21 +191,20 @@ order by todos.id desc;
         Ok(todos)
     }
 
-    async fn update(&self, id: i32, user_id: i32, payload: UpdateTodo) -> anyhow::Result<TodoEntity> {
+    async fn update(&self, id: i32, payload: UpdateTodo) -> anyhow::Result<TodoEntity> {
         let mut tx = self.pool.begin().await?;
 
-        let old_todo = self.find(id, user_id).await?;
+        let old_todo = self.find(id).await?;
         sqlx::query(
             r#"
 update todos set text=$1, completed=$2
-where id = $3 and user_id = $4
+where id = $3
 returning *
         "#,
         )
         .bind(payload.text.unwrap_or(old_todo.text))
         .bind(payload.completed.unwrap_or(old_todo.completed))
         .bind(id)
-        .bind(user_id)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -234,12 +232,12 @@ returning *
         };
 
         tx.commit().await?;
-        let todo = self.find(id, user_id).await?;
+        let todo = self.find(id).await?;
 
         Ok(todo)
     }
 
-    async fn delete(&self, id: i32, user_id: i32) -> anyhow::Result<()> {
+    async fn delete(&self, id: i32) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
         sqlx::query(
@@ -259,11 +257,10 @@ where todo_id = $1
         sqlx::query(
             r#"
 delete from todos
-where id = $1 and user_id = $2
+where id = $1
         "#,
         )
         .bind(id)
-        .bind(user_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| match e {
@@ -412,7 +409,7 @@ mod test {
 
         // find
         let todo = repository
-            .find(created.id, test_user_id)
+            .find(created.id)
             .await
             .expect("[find] returned Err");
         assert_eq!(created, todo);
@@ -430,7 +427,6 @@ mod test {
         let todo = repository
             .update(
                 todo.id,
-                test_user_id,
                 UpdateTodo {
                     text: Some(updated_text.to_string()),
                     completed: Some(true),
@@ -447,10 +443,10 @@ mod test {
 
         // delete
         let _ = repository
-            .delete(todo.id, test_user_id)
+            .delete(todo.id)
             .await
             .expect("[delete] returned Err");
-        let res = repository.find(created.id, test_user_id).await;
+        let res = repository.find(created.id).await;
         assert!(res.is_err());
 
         let todo_rows = sqlx::query(
@@ -533,7 +529,7 @@ pub mod test_utils {
             Ok(todo)
         }
 
-        async fn find(&self, id: i32, user_id: i32) -> anyhow::Result<TodoEntity> {
+        async fn find(&self, id: i32) -> anyhow::Result<TodoEntity> {
             let store = self.read_store_ref();
             let todo = store
                 .get(&id)
@@ -554,7 +550,7 @@ pub mod test_utils {
             todo!()
         }
 
-        async fn update(&self, id: i32, user_id: i32, payload: UpdateTodo) -> anyhow::Result<TodoEntity> {
+        async fn update(&self, id: i32, payload: UpdateTodo) -> anyhow::Result<TodoEntity> {
             let mut store = self.write_store_ref();
             let todo = store.get(&id).context(RepositoryError::NotFound(id))?;
             let text = payload.text.unwrap_or(todo.text.clone());
@@ -563,7 +559,7 @@ pub mod test_utils {
                 Some(label_ids) => self.resolve_labels(label_ids),
                 None => todo.labels.clone(),
             };
-            let todo = TodoEntity::new(id, text, labels, user_id, None);
+            let todo = TodoEntity::new(id, text, labels, todo.user_id, todo.team_id);
             let todo = TodoEntity {
                 completed,
                 ..todo
@@ -572,7 +568,7 @@ pub mod test_utils {
             Ok(todo)
         }
 
-        async fn delete(&self, id: i32, user_id: i32) -> anyhow::Result<()> {
+        async fn delete(&self, id: i32) -> anyhow::Result<()> {
             let mut store = self.write_store_ref();
             store.remove(&id).ok_or(RepositoryError::NotFound(id))?;
             Ok(())
@@ -601,7 +597,7 @@ pub mod test_utils {
             assert_eq!(expected, todo);
 
             // find
-            let todo = repository.find(todo.id, user_id).await.unwrap();
+            let todo = repository.find(todo.id).await.unwrap();
             assert_eq!(expected, todo);
 
             // all
@@ -616,7 +612,6 @@ pub mod test_utils {
             let todo = repository
                 .update(
                     1,
-                    user_id,
                     UpdateTodo {
                         text: Some(text.clone()),
                         completed: Some(true),
@@ -638,7 +633,7 @@ pub mod test_utils {
             );
 
             // delete
-            let res = repository.delete(id, user_id).await;
+            let res = repository.delete(id).await;
             assert!(res.is_ok())
         }
     }

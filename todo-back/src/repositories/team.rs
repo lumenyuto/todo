@@ -172,7 +172,7 @@ order by teams.id desc;
             r#"
 select 1 from team_users
 where team_id = $1 and user_id = $2
-        "#,
+            "#,
         )
         .bind(id)
         .bind(user_id)

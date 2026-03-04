@@ -76,8 +76,8 @@ select * from users where sub = $1
     async fn update_name(&self, sub: String, payload: UpdateUser) -> anyhow::Result<User> {
         let user = sqlx::query_as::<_, User>(
             r#"
-UPDATE users SET name = $1 WHERE sub = $2
-RETURNING *
+update users set name = $1 where sub = $2
+returning *
             "#,
         )
         .bind(payload.name.clone())

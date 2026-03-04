@@ -24,7 +24,7 @@ use tokio::net::TcpListener;
 use handlers::{
     label::{all_label, create_label, delete_label},
     team::{all_team, create_team},
-    todo::{all_user_todo, all_team_todo, create_team_todo, create_user_todo, delete_todo, find_todo, update_todo},
+    todo::{all_user_todo, all_team_todo, create_team_todo, create_user_todo, delete_team_todo, delete_user_todo, find_user_todo, update_team_todo, update_user_todo},
     user::{create_user, find_me, update_user},
 };
 use repositories::{
@@ -96,9 +96,9 @@ fn create_app<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository
         .route("/todos", post(create_user_todo::<Label, Team, Todo, User>).get(all_user_todo::<Label, Team, Todo, User>))
         .route(
             "/todos/{id}",
-            get(find_todo::<Label, Team, Todo, User>)
-                .delete(delete_todo::<Label, Team, Todo, User>)
-                .patch(update_todo::<Label, Team, Todo, User>),
+            get(find_user_todo::<Label, Team, Todo, User>)
+                .delete(delete_user_todo::<Label, Team, Todo, User>)
+                .patch(update_user_todo::<Label, Team, Todo, User>),
         )
         .route(
             "/labels",
@@ -121,6 +121,10 @@ fn create_app<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository
         .route(
             "/teams/{id}/todos",
             post(create_team_todo::<Label, Team, Todo, User>).get(all_team_todo::<Label, Team, Todo, User>),
+        )
+        .route(
+            "teams/{id}/todos/{id}",
+            delete(delete_team_todo::<Label, Team, Todo, User>).patch(update_team_todo::<Label, Team, Todo, User>),
         )
         .with_state(state)
         .layer(

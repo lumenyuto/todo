@@ -35,10 +35,19 @@ pub async fn all_team<Label: LabelRepository, Team: TeamRepository, Todo: TodoRe
 }
 
 pub async fn create_team<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
-    _auth_user: AuthenticatedUser,
+    auth_user: AuthenticatedUser,
     State(state): State<AppState<Label, Team, Todo, User>>,
-    ValidatedJson(payload): ValidatedJson<CreateTeam>,
+    ValidatedJson(mut payload): ValidatedJson<CreateTeam>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let user = state.user_repository
+        .find_by_sub(auth_user.sub.clone())
+        .await
+        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    if !payload.user_ids.contains(&user.id) {
+        payload.user_ids.push(user.id);
+    }
+
     let team = state.team_repository
         .create(payload)
         .await

@@ -123,7 +123,7 @@ fn create_app<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository
             post(create_team_todo::<Label, Team, Todo, User>).get(all_team_todo::<Label, Team, Todo, User>),
         )
         .route(
-            "teams/{id}/todos/{id}",
+            "/teams/{id}/todos/{id}",
             delete(delete_team_todo::<Label, Team, Todo, User>).patch(update_team_todo::<Label, Team, Todo, User>),
         )
         .with_state(state)

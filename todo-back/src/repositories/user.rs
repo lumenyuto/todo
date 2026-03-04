@@ -24,10 +24,10 @@ impl UserRepository for UserRepositoryForDb {
     async fn create(&self, payload: CreateUser) -> anyhow::Result<User> {
         let user = sqlx::query_as::<_, User>(
             r#"
-INSERT INTO users (sub, name, email)
-VALUES ($1, $2, $3)
-ON CONFLICT (sub) DO UPDATE SET email = $3
-RETURNING *
+insert into users (sub, name, email)
+values ($1, $2, $3)
+on conflict (sub) do update set email = $3
+returning *
             "#,
         )
         .bind(payload.sub.clone())

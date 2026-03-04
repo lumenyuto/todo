@@ -22,7 +22,7 @@ pub async fn all_team<Label: LabelRepository, Team: TeamRepository, Todo: TodoRe
     State(state): State<AppState<Label, Team, Todo, User>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
-        .find_by_sub(auth_user.sub.clone())
+        .find_by_sub(auth_user.sub)
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 

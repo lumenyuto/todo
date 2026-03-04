@@ -1,7 +1,6 @@
 use sqlx::{FromRow, PgPool};
 use crate::models::{
-    label::Label,
-    team::{CreateTeam, TeamEntity, UpdateTeam},
+    team::{CreateTeam, TeamEntity},
     user::User,
 };
 use super::RepositoryError;
@@ -68,9 +67,7 @@ fn fold_entities(rows: Vec<TeamWithUserFromRow>) -> Vec<TeamEntity> {
 pub trait TeamRepository: Clone + std::marker::Send + std::marker::Sync + 'static {
     fn create(&self, payload: CreateTeam) -> impl Future<Output = anyhow::Result<TeamEntity>> + Send;
     fn find(&self, id: i32) -> impl Future<Output = anyhow::Result::<TeamEntity>> + Send;
-    // fn all_by_user(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<TeamEntity>>> + Send;
-    // fn update(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<TeamEntity>> + Send;
-    // fn felete(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn all_by_user(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<TeamEntity>>> + Send;
     fn is_member(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<bool>> + Send;
 }
 
@@ -105,7 +102,7 @@ returning id, name
             r#"
 insert into team_users (team_id, user_id)
 select $1, id
-from unnset ($2) as t(id)
+from unnest ($2) as t(id)
             "#,
             )
             .bind(row.id)
@@ -144,6 +141,30 @@ where teams.id = $1
         let teams = fold_entities(items);
         let team = teams.first().ok_or(RepositoryError::NotFound(id))?;
         Ok(team.clone())
+    }
+
+    async fn all_by_user(&self, user_id: i32) -> anyhow::Result<Vec<TeamEntity>> {
+        let items = sqlx::query_as::<_, TeamWithUserFromRow>(
+            r#"
+select teams.id, teams.name,
+       users.id as user_id,
+       users.sub as user_sub,
+       users.name as user_name,
+       users.email as user_email
+from teams
+            inner join team_users tu on teams.id = tu.team_id
+            left outer join team_users tu2 on teams.id = tu2.team_id
+            left outer join users on users.id = tu2.user_id
+where tu.user_id = $1
+order by teams.id desc;
+        "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let teams = fold_entities(items);
+        Ok(teams)
     }
 
     async fn is_member(&self, id: i32, user_id: i32) -> anyhow::Result<bool> {
@@ -205,6 +226,10 @@ pub mod test_utils {
         }
 
         async fn find(&self, id: i32) -> anyhow::Result<TeamEntity> {
+            todo!()
+        }
+
+        async fn all_by_user(&self, user_id: i32) -> anyhow::Result<Vec<TeamEntity>> {
             todo!()
         }
 

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::State,
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -7,7 +7,7 @@ use axum::{
 use crate::{
     AppState,
     auth::AuthenticatedUser,
-    models::team::{CreateTeam, UpdateTeam},
+    models::team::CreateTeam,
     repositories::{
         label::LabelRepository,
         team::TeamRepository,
@@ -16,6 +16,23 @@ use crate::{
     },
 };
 use super::ValidatedJson;
+
+pub async fn all_team<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+    auth_user: AuthenticatedUser,
+    State(state): State<AppState<Label, Team, Todo, User>>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let user = state.user_repository
+        .find_by_sub(auth_user.sub.clone())
+        .await
+        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    let teams = state.team_repository
+        .all_by_user(user.id)
+        .await
+        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    Ok(Json(teams))
+}
 
 pub async fn create_team<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
     _auth_user: AuthenticatedUser,

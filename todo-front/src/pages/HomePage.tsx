@@ -1,4 +1,4 @@
-import { useEffect, useState, type FC } from 'react'
+import { useCallback, useEffect, useRef, useState, type FC } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import { Avatar, Box, Stack, Typography, Button, TextField, IconButton } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
@@ -70,6 +70,21 @@ export const HomePage: FC = () => {
   }, [getAccessTokenSilently, user])
 
   const getToken = () => getAccessTokenSilently()
+  const selectedTeamIdRef = useRef(selectedTeamId)
+  selectedTeamIdRef.current = selectedTeamId
+
+  useEffect(() => {
+    if (selectedTeamId === null) return
+    const id = setInterval(async () => {
+      try {
+        const token = await getAccessTokenSilently()
+        const todos = await getTeamTodoItems(token, selectedTeamIdRef.current!)
+        setTodos(todos)
+      } catch {
+      }
+    }, 5000)
+    return () => clearInterval(id)
+  }, [selectedTeamId, getAccessTokenSilently])
 
   //fetch
   const fetchTodos = async (token: string, teamId: number | null) => {

@@ -30,7 +30,7 @@ type Props = {
   onSubmitNewLabel: (newLabel: NewLabelPayload) => void
   onDeleteLabel: (id: number) => void
   teams: Team[]
-  selectedTeamId: number | null
+  teamId: number | null
   onSelectTeam: (teamId: number | null) => void
   onSubmitNewTeam: (payload: NewTeamPayload) => void
 }
@@ -42,7 +42,7 @@ export const SideNav: FC<Props> = ({
   onSubmitNewLabel,
   onDeleteLabel,
   teams,
-  selectedTeamId,
+  teamId,
   onSelectTeam,
   onSubmitNewTeam,
 }) => {
@@ -78,7 +78,7 @@ export const SideNav: FC<Props> = ({
         <ListItem disablePadding>
           <ListItemButton
             onClick={() => onSelectTeam(null)}
-            selected={selectedTeamId === null}
+            selected={teamId === null}
           >
             <Stack direction="row" alignItems="center" spacing={1}>
               <PersonIcon fontSize="small" />
@@ -92,9 +92,9 @@ export const SideNav: FC<Props> = ({
           <ListItem key={team.id} disablePadding>
             <ListItemButton
               onClick={() =>
-                onSelectTeam(team.id === selectedTeamId ? null : team.id)
+                onSelectTeam(team.id === teamId ? null : team.id)
               }
-              selected={team.id === selectedTeamId}
+              selected={team.id === teamId}
             >
               <Stack direction="row" alignItems="center" spacing={1}>
                 <GroupsIcon fontSize="small" />

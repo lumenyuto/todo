@@ -44,7 +44,7 @@ export const HomePage: FC = () => {
   const [isEditingUserName, setIsEditingUserName] = useState(false)
   const [tempName, setTempName] = useState('')
   const [teams, setTeams] = useState<Team[]>([])
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null)
+  const [teamId, setTeamId] = useState<number | null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -70,21 +70,21 @@ export const HomePage: FC = () => {
   }, [getAccessTokenSilently, user])
 
   const getToken = () => getAccessTokenSilently()
-  const selectedTeamIdRef = useRef(selectedTeamId)
-  selectedTeamIdRef.current = selectedTeamId
+  const teamIdRef = useRef(teamId)
+  teamIdRef.current = teamId
 
   useEffect(() => {
-    if (selectedTeamId === null) return
+    if (teamId === null) return
     const id = setInterval(async () => {
       try {
         const token = await getAccessTokenSilently()
-        const todos = await getTeamTodoItems(token, selectedTeamIdRef.current!)
+        const todos = await getTeamTodoItems(token, teamIdRef.current!)
         setTodos(todos)
       } catch {
       }
     }, 5000)
     return () => clearInterval(id)
-  }, [selectedTeamId, getAccessTokenSilently])
+  }, [teamId, getAccessTokenSilently])
 
   //fetch
   const fetchTodos = async (token: string, teamId: number | null) => {
@@ -98,33 +98,33 @@ export const HomePage: FC = () => {
   const onSubmit = async (payload: NewTodoPayload) => {
     if (!payload.text) return
     const token = await getToken()
-    if (selectedTeamId !== null) {
-      await addTeamTodoItem(token, selectedTeamId, payload)
+    if (teamId !== null) {
+      await addTeamTodoItem(token, teamId, payload)
     } else {
       await addTodoItem(token, payload)
     }
-    const todos = await fetchTodos(token, selectedTeamId)
+    const todos = await fetchTodos(token, teamId)
     setTodos(todos)
   }
 
   const onUpdate = async (updateTodo: UpdateTodoPayload) => {
     const token = await getToken()
     await updateTodoItem(token, updateTodo)
-    const todos = await fetchTodos(token, selectedTeamId)
+    const todos = await fetchTodos(token, teamId)
     setTodos(todos)
   }
 
   const onDelete = async (id: number) => {
     const token = await getToken()
     await deleteTodoItem(token, id)
-    const todos = await fetchTodos(token, selectedTeamId)
+    const todos = await fetchTodos(token, teamId)
     setTodos(todos)
   }
 
   
   // team
   const onSelectTeam = async (teamId: number | null) => {
-    setSelectedTeamId(teamId)
+    setTeamId(teamId)
     setFilterLabelId(null)
     const token = await getToken()
     const todos = await fetchTodos(token, teamId)
@@ -171,7 +171,7 @@ export const HomePage: FC = () => {
     )
     : todos
 
-  const selectedTeam = teams.find((t) => t.id === selectedTeamId)
+  const selectedTeam = teams.find((t) => t.id === teamId)
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -243,17 +243,17 @@ export const HomePage: FC = () => {
       <Box
         sx={{
           display: 'flex',
-          mt: '80px', // ヘッダーの高さ分下げる
-          height: 'calc(100vh - 80px)', // 画面の高さからヘッダー分を引く
+          mt: '80px',
+          height: 'calc(100vh - 80px)',
         }}
       >
         <Box
           sx={{
             backgroundColor: 'white',
             borderRight: '1px solid gray',
-            width: { xs: '35%', sm: '200px' }, // スマホ(xs)では画面幅の35%、タブレット以上(sm)では200px固定
-            flexShrink: 0, // 画面幅が縮んでもサイドバーの比率を維持する
-            overflowY: 'auto', // メニューが増えたら独立してスクロール
+            width: { xs: '35%', sm: '200px' },
+            flexShrink: 0,
+            overflowY: 'auto',
           }}
         >
           <SideNav
@@ -263,18 +263,18 @@ export const HomePage: FC = () => {
             onSubmitNewLabel={onSubmitNewLabel}
             onDeleteLabel={onDeleteLabel}
             teams={teams}
-            selectedTeamId={selectedTeamId}
+            teamId={teamId}
             onSelectTeam={onSelectTeam}
             onSubmitNewTeam={onSubmitNewTeam}
           />
         </Box>
         <Box
           sx={{
-            flex: 1, // 残りの横幅をすべて使う
+            flex: 1,
             display: 'flex',
             justifyContent: 'center',
-            p: { xs: 2, sm: 5 }, // スマホでは周囲の余白を小さくする
-            overflowY: 'auto', // メインコンテンツ側も独立してスクロール
+            p: { xs: 2, sm: 5 },
+            overflowY: 'auto',
           }}
         >
           <Box maxWidth={700} width="100%">

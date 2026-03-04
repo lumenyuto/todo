@@ -71,6 +71,7 @@ export const HomePage: FC = () => {
 
   const getToken = () => getAccessTokenSilently()
 
+  //fetch
   const fetchTodos = async (token: string, teamId: number | null) => {
     if (teamId !== null) {
       return await getTeamTodoItems(token, teamId)

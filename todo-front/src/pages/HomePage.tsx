@@ -74,19 +74,6 @@ export const HomePage: FC = () => {
 
   const getToken = () => getAccessTokenSilently()
 
-  useEffect(() => {
-    if (teamId === null) return
-    const id = setInterval(async () => {
-      try {
-        const token = await getAccessTokenSilently()
-        const todos = await getTeamTodoItems(token, teamId)
-        setTodos(todos)
-      } catch {
-      }
-    }, 5000)
-    return () => clearInterval(id)
-  }, [teamId, getAccessTokenSilently])
-
   //fetch
   const fetchTodos = async (token: string, teamId: number | null) => {
     if (teamId !== null) {

@@ -19,22 +19,24 @@ import { modalInnerStyle } from '../styles/modal'
 type Props = {
   onSubmit: (newTodo: NewTodoPayload) => void
   labels: Label[]
+  teamId: number | null
 }
 
-export const TodoForm: FC<Props> = ({ onSubmit, labels }) => {
+export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId}) => {
   const [editText, setEditText] = useState('')
   const [editLabels, setEditLabels] = useState<Label[]>([])
   const [openLabelModal, setOpenLabelModal] = useState(false)
 
   const addTodoHandler = async () => {
-      if (!editText) return
+    if (!editText) return
 
-      onSubmit({
-          text: editText,
-          label_ids: editLabels.map((label) => label.id),
-      })
-      setEditText('')
-      setEditLabels([]) // 追加後にラベルの選択状態をリセットする場合
+    onSubmit({
+      team_id: teamId,
+      text: editText,
+      label_ids: editLabels.map((label) => label.id),
+    })
+    setEditText('')
+    setEditLabels([])
   }
 
   return (

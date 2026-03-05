@@ -10,11 +10,13 @@ export type Todo = {
 }
 
 export type NewTodoPayload = {
+  team_id: number | null
   text: string
   label_ids: number[]
 }
 
 export type UpdateTodoPayload = {
+  team_id: number | null
   id: number
   text?: string
   completed?: boolean

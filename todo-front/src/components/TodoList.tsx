@@ -7,11 +7,12 @@ import { TodoItem }from './TodoItem'
 type Props = {
   todos: Todo[]
   labels: Label[]
+  teamId: number | null
   onUpdate: (todo: UpdateTodoPayload) => void
   onDelete: (id: number) => void
 }
 
-export const TodoList: FC<Props> = ({ todos, labels, onUpdate, onDelete }) => {
+export const TodoList: FC<Props> = ({ todos, labels, teamId, onUpdate, onDelete }) => {
   return (
     <Stack spacing={2}>
       <Typography variant="h2">todo list </Typography>
@@ -20,9 +21,11 @@ export const TodoList: FC<Props> = ({ todos, labels, onUpdate, onDelete }) => {
           <TodoItem
             key={todo.id}
             todo={todo}
+            labels={labels}
+            teamId={teamId}
             onUpdate={onUpdate}
             onDelete={onDelete}
-            labels={labels}
+            
           />
         ))}
       </Stack>

@@ -16,9 +16,12 @@ import {
 } from '../lib/api/label'
 import {
   addTodoItem,
+  addTeamTodoItem,
   getTodoItems,
-  deleteTodoItem,
+  getTeamTodoItems,
   updateTodoItem,
+  updateTeamTodoItem,
+  deleteTodoItem,
 } from '../lib/api/todo'
 import {
   addUserItem,
@@ -27,8 +30,6 @@ import {
 import {
   getTeamItems,
   createTeamItem,
-  getTeamTodoItems,
-  addTeamTodoItem,
 } from '../lib/api/team'
 
 import type { Label, NewLabelPayload } from '../types/label'
@@ -47,14 +48,16 @@ export const HomePage: FC = () => {
   const [teamId, setTeamId] = useState<number | null>(null)
 
   useEffect(() => {
+    if (!user?.sub) return
     ;(async () => {
+
       const token = await getAccessTokenSilently()
       const User = await addUserItem(
         token,
         {
-          sub: user!.sub!,
-          name: user!.name ?? '',
-          email: user!.email ?? '',
+          sub: user.sub ?? '',
+          name: user.name ?? '',
+          email: user.email ?? '',
         },
       )
       setUserName(User.name)
@@ -67,18 +70,16 @@ export const HomePage: FC = () => {
       setTodos(todos)
       setTeams(teams)
     })()
-  }, [getAccessTokenSilently, user])
+  }, [getAccessTokenSilently, user?.sub])
 
   const getToken = () => getAccessTokenSilently()
-  const teamIdRef = useRef(teamId)
-  teamIdRef.current = teamId
 
   useEffect(() => {
     if (teamId === null) return
     const id = setInterval(async () => {
       try {
         const token = await getAccessTokenSilently()
-        const todos = await getTeamTodoItems(token, teamIdRef.current!)
+        const todos = await getTeamTodoItems(token, teamId)
         setTodos(todos)
       } catch {
       }
@@ -99,7 +100,7 @@ export const HomePage: FC = () => {
     if (!payload.text) return
     const token = await getToken()
     if (teamId !== null) {
-      await addTeamTodoItem(token, teamId, payload)
+      await addTeamTodoItem(token, payload)
     } else {
       await addTodoItem(token, payload)
     }
@@ -109,7 +110,11 @@ export const HomePage: FC = () => {
 
   const onUpdate = async (updateTodo: UpdateTodoPayload) => {
     const token = await getToken()
-    await updateTodoItem(token, updateTodo)
+    if (teamId !== null) {
+      await updateTeamTodoItem(token, updateTodo)
+    } else {
+      await updateTodoItem(token, updateTodo)
+    }
     const todos = await fetchTodos(token, teamId)
     setTodos(todos)
   }
@@ -120,7 +125,6 @@ export const HomePage: FC = () => {
     const todos = await fetchTodos(token, teamId)
     setTodos(todos)
   }
-
   
   // team
   const onSelectTeam = async (teamId: number | null) => {
@@ -171,7 +175,7 @@ export const HomePage: FC = () => {
     )
     : todos
 
-  const selectedTeam = teams.find((t) => t.id === teamId)
+  const teamName = teams.find((t) => t.id === teamId)
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -279,15 +283,16 @@ export const HomePage: FC = () => {
         >
           <Box maxWidth={700} width="100%">
             <Stack spacing={5}>
-              {selectedTeam && (
+              {teamName && (
                 <Typography variant="h2" color="primary">
-                  {selectedTeam.name}
+                  {teamName.name}
                 </Typography>
               )}
-              <TodoForm onSubmit={onSubmit} labels={labels} />
+              <TodoForm onSubmit={onSubmit} labels={labels} teamId={teamId}/>
               <TodoList
                 todos={dispTodo}
                 labels={labels}
+                teamId={teamId}
                 onUpdate={onUpdate}
                 onDelete={onDelete}
               />

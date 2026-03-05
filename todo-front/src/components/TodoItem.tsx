@@ -46,7 +46,10 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
 
   const handleDelete = () => onDelete(todo.id)
 
-  const onCloseEditModal = () => {
+  const handleCancel = () => {
+    setEditing(false)
+  }
+  const handleSave = () => {
     onUpdate({
       team_id: teamId,
       id: todo.id,
@@ -142,7 +145,7 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
           </Stack>
         </Grid>
       </Grid>
-      <Modal open={editing} onClose={onCloseEditModal}>
+      <Modal open={editing} onClose={handleCancel}>
         <Box sx={modalInnerStyle}>
           <Stack spacing={3}>
             <Typography variant="h6" sx={{ color: '#2e7d32', fontWeight: 'bold' }}>
@@ -189,11 +192,11 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
               </Box>
             </Stack>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
-              <Button onClick={onCloseEditModal} color="inherit" sx={{ mr: 1 }}>
+              <Button onClick={handleCancel} color="inherit" sx={{ mr: 1 }}>
                 キャンセル
               </Button>
               <Button 
-                onClick={onCloseEditModal}
+                onClick={handleSave}
                 variant="contained" 
                 color="success"
                 sx={{ borderRadius: 2, boxShadow: 'none' }}

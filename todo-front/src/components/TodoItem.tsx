@@ -113,7 +113,11 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
         <Grid size={{ xs: 3 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Stack direction="row" spacing={1}>
             <Button
-              onClick={() => setEditing(true)}
+              onClick={() => {
+                setEditing(true)
+                setEditText(todo.text)
+                setEditLabels(todo.labels)
+              }}
               color="success"
               variant="text"
               size="small"
@@ -165,22 +169,41 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
                 {labels.map((label) => (
                   <FormControlLabel
                     key={label.id}
+                    label={label.name}
                     control={
                       <Checkbox
                         color="success"
-                        defaultChecked={todo.labels.some(
-                          (todoLabel) => todoLabel.id === label.id
+                        // ★ 修正1: defaultChecked ではなく checked を使う
+                        // ★ 修正2: todo.labels ではなく、現在の state である editLabels の中身を見る
+                        checked={editLabels.some(
+                          (editLabel) => editLabel.id === label.id
                         )}
+                        // ★ 修正3: onChange を Checkbox の中に移動
+                        onChange={() =>
+                          setEditLabels((prev) => toggleLabels(prev, label))
+                        }
                       />
-                    }
-                    label={label.name}
-                    onChange={() =>
-                      setEditLabels((prev) => toggleLabels(prev, label))
                     }
                   />
                 ))}
               </Box>
             </Stack>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
+              <Button onClick={onCloseEditModal} color="inherit" sx={{ mr: 1 }}>
+                キャンセル
+              </Button>
+              <Button 
+                onClick={() => {
+                  // ここで onUpdate 等を呼んでバックエンドに保存する処理（すでに別で作っていればそちらを使ってください）
+                  // 例: handleUpdate();
+                }} 
+                variant="contained" 
+                color="success"
+                sx={{ borderRadius: 2, boxShadow: 'none' }}
+              >
+                保存
+              </Button>
+            </Box>
           </Stack>
         </Box>
       </Modal>

@@ -193,10 +193,7 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
                 キャンセル
               </Button>
               <Button 
-                onClick={() => {
-                  // ここで onUpdate 等を呼んでバックエンドに保存する処理（すでに別で作っていればそちらを使ってください）
-                  // 例: handleUpdate();
-                }} 
+                onClick={onCloseEditModal}
                 variant="contained" 
                 color="success"
                 sx={{ borderRadius: 2, boxShadow: 'none' }}

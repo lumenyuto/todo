@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FC } from 'react'
+import { useEffect, useState, type FC } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import { Avatar, Box, Stack, Typography, Button, TextField, IconButton } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'

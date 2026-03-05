@@ -1,5 +1,4 @@
 import type { Team, NewTeamPayload } from '../../types/team'
-import type { Todo, NewTodoPayload } from '../../types/todo'
 
 const API_URL = import.meta.env.VITE_API_URL
 

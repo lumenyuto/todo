@@ -158,7 +158,7 @@ from todos
             left outer join todo_labels tl on todos.id = tl.todo_id
             left outer join labels on labels.id = tl.label_id
 where todos.user_id = $1
-order by todos.id desc;
+order by todos.id desc, labels.id asc;
         "#,
         )
         .bind(user_id)
@@ -179,7 +179,7 @@ from todos
             left outer join todo_labels tl on todos.id = tl.todo_id
             left outer join labels on labels.id = tl.label_id
 where todos.team_id = $1
-order by todos.id desc;
+order by todos.id desc, labels.id asc;
         "#,
         )
         .bind(team_id)

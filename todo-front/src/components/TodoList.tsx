@@ -24,8 +24,7 @@ export const TodoList: FC<Props> = ({ todos, labels, teamId, onUpdate, onDelete 
             labels={labels}
             teamId={teamId}
             onUpdate={onUpdate}
-            onDelete={onDelete}
-            
+            onDelete={onDelete}  
           />
         ))}
       </Stack>

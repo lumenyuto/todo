@@ -22,7 +22,7 @@ type Props = {
   teamId: number | null
 }
 
-export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId}) => {
+export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId }) => {
   const [editText, setEditText] = useState('')
   const [editLabels, setEditLabels] = useState<Label[]>([])
   const [openLabelModal, setOpenLabelModal] = useState(false)
@@ -41,8 +41,8 @@ export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId}) => {
 
   return (
     <Paper elevation={2}>
-      <Box sx={{ p: 2 }}>
-        <Grid container rowSpacing={2} columnSpacing={5}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        <Grid container rowSpacing={2} columnSpacing={2}>
           <Grid size={{ xs: 12 }}>
             <TextField
               label="new todo text"
@@ -50,30 +50,47 @@ export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId}) => {
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               fullWidth
+              color="success"
             />
           </Grid>
-          <Grid size={{ xs: 12 }}>
-            <Stack direction="row" spacing={1}>
-              {editLabels.map((label) => (
-                <Chip key={label.id} label={label.name} />
-              ))}
-            </Stack>
-          </Grid>
-          <Grid size={{ xs: 3, md: 7 }}>
+
+          {editLabels.length > 0 && (
+            <Grid size={{ xs: 12 }}>
+              <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
+                {editLabels.map((label) => (
+                  <Chip
+                    key={label.id}
+                    label={label.name}
+                    color="success"
+                    variant="outlined"
+                  />
+                ))}
+              </Stack>
+            </Grid>
+          )}
+
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Button
               onClick={() => setOpenLabelModal(true)}
               fullWidth
-              color="secondary"
+              variant="outlined"
+              color="success"
             >
               select label
             </Button>
           </Grid>
-          <Grid size={{ xs: 6 }} />
-          <Grid size={{ xs: 3 }}>
-            <Button onClick={addTodoHandler} fullWidth variant="contained">
+          
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <Button
+              onClick={addTodoHandler}
+              fullWidth
+              variant="contained"
+              color="success"
+            >
               add todo
             </Button>
           </Grid>
+
           <Modal open={openLabelModal} onClose={() => setOpenLabelModal(false)}>
             <Box sx={modalInnerStyle}>
               <Stack>
@@ -81,8 +98,9 @@ export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId}) => {
                   <FormControlLabel
                     key={label.id}
                     control={
-                      <Checkbox 
-                        checked={editLabels.some((l) => l.id === label.id)} 
+                      <Checkbox
+                        checked={editLabels.some((l) => l.id === label.id)}
+                        color="success"
                       />
                     }
                     label={label.name}

@@ -62,7 +62,7 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
   return (
     <Card 
       sx={{
-        p: 2.5,
+        p: { xs: 1.5, sm: 2.5 },
         mb: 2,
         borderRadius: 3,
         boxShadow: '0 2px 12px rgba(46, 125, 50, 0.08)',
@@ -74,47 +74,50 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
         },
       }}
     >
-      <Grid container spacing={2} alignItems="center">
-        <Grid size = {{xs: 1}}>
+      <Grid container spacing={1} alignItems="flex-start">
+        <Grid size={{ xs: 2, sm: 1 }}>
           <Checkbox
             onChange={handleCompletedCheckbox}
             checked={todo.completed}
-            color="success" // チェックボックスを緑色に
-            sx={{ '& .MuiSvgIcon-root': { fontSize: 28 } }} // 少し大きめにして押しやすく
+            color="success"
+            sx={{ p: 0.5, '& .MuiSvgIcon-root': { fontSize: { xs: 24, sm: 28 } } }}
           />
         </Grid>
-        <Grid size = {{xs: 8}}>
-            <Stack spacing={1}>
-              <Typography
-                variant="body1"
-                fontSize={16}
-                sx={{
-                  color: todo.completed ? 'text.disabled' : '#2e3d32', // 完了時はグレー、通常時は深い緑みを帯びた黒
-                  textDecoration: todo.completed ? 'line-through' : 'none',
-                  fontWeight: 500,
-                }}
-              >
-                {todo.text}
-              </Typography>
-              <Stack direction="row" spacing={1}>
-                {todo.labels?.map((label) => (
-                  <Chip
-                    key={label.id}
-                    label={label.name}
-                    size="small"
-                    sx={{
-                      bgcolor: '#e8f5e9', // 非常に薄い緑色の背景
-                      color: '#2e7d32', // 文字は濃い緑
-                      fontWeight: 500,
-                      border: 'none',
-                    }}
-                  />
-                ))}
-              </Stack>
+
+        <Grid size={{ xs: 10, sm: 8 }}>
+          <Stack spacing={1}>
+            <Typography
+              variant="body1"
+              sx={{
+                fontSize: { xs: 15, sm: 16 },
+                color: todo.completed ? 'text.disabled' : '#2e3d32',
+                textDecoration: todo.completed ? 'line-through' : 'none',
+                fontWeight: 500,
+                wordBreak: 'break-word',
+              }}
+            >
+              {todo.text}
+            </Typography>
+            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5}>
+              {todo.labels?.map((label) => (
+                <Chip
+                  key={label.id}
+                  label={label.name}
+                  size="small"
+                  sx={{
+                    bgcolor: '#e8f5e9',
+                    color: '#2e7d32',
+                    fontWeight: 500,
+                    fontSize: '0.7rem',
+                  }}
+                />
+              ))}
             </Stack>
+          </Stack>
         </Grid>
-        <Grid size={{ xs: 3 }} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Stack direction="row" spacing={1}>
+
+        <Grid size={{ xs: 12, sm: 3 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: { xs: 1, sm: 0 } }}>
+          <Stack direction="row" spacing={0.5}>
             <Button
               onClick={() => {
                 setEditing(true)
@@ -126,6 +129,7 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
               size="small"
               sx={{
                 borderRadius: 2,
+                fontSize: { xs: '0.75rem', sm: '0.8125rem' },
                 '&:hover': { bgcolor: '#e8f5e9' },
               }}
             >
@@ -135,9 +139,10 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
               onClick={handleDelete}
               size="small"
               sx={{
-                color: '#9e9e9e', // 普段は目立たないグレー
+                color: '#9e9e9e',
                 borderRadius: 2,
-                '&:hover': { color: '#d32f2f', bgcolor: '#ffebee' }, // ホバー時だけ赤くして誤操作防止
+                fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                '&:hover': { color: '#d32f2f', bgcolor: '#ffebee' },
               }}
             >
               削除
@@ -145,8 +150,9 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
           </Stack>
         </Grid>
       </Grid>
+
       <Modal open={editing} onClose={handleCancel}>
-        <Box sx={modalInnerStyle}>
+        <Box sx={{ ...modalInnerStyle, width: { xs: '90%', sm: 400 }, maxHeight: '90vh', overflowY: 'auto' }}>
           <Stack spacing={3}>
             <Typography variant="h6" sx={{ color: '#2e7d32', fontWeight: 'bold' }}>
               タスクの編集
@@ -156,9 +162,9 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
               fullWidth
               variant="outlined"
               label="Todo text"
-              defaultValue={todo.text}
+              value={editText}
               onChange={(e) => setEditText(e.target.value)}
-              color="success" // フォーカス時の枠線を緑に
+              color="success"
               sx={{
                 '& .MuiOutlinedInput-root': { borderRadius: 2 }
               }}
@@ -168,7 +174,7 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
               <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
                 ラベル
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', pl: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', pl: 1, maxHeight: 200, overflowY: 'auto' }}>
                 {labels.map((label) => (
                   <FormControlLabel
                     key={label.id}
@@ -176,12 +182,9 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
                     control={
                       <Checkbox
                         color="success"
-                        // ★ 修正1: defaultChecked ではなく checked を使う
-                        // ★ 修正2: todo.labels ではなく、現在の state である editLabels の中身を見る
                         checked={editLabels.some(
                           (editLabel) => editLabel.id === label.id
                         )}
-                        // ★ 修正3: onChange を Checkbox の中に移動
                         onChange={() =>
                           setEditLabels((prev) => toggleLabels(prev, label))
                         }

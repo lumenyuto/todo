@@ -1,4 +1,4 @@
-FROM rust:1.88-slim AS builder
+FROM --platform=linux/amd64 rust:1.88-slim AS builder
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
@@ -10,7 +10,7 @@ RUN cargo build --release --no-default-features && rm -rf src
 COPY src ./src
 RUN touch src/main.rs && cargo build --release --no-default-features
 
-FROM debian:bookworm-slim
+FROM --platform=linux/amd64 debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/todo-back /usr/local/bin/todo-back

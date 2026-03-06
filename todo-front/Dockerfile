@@ -1,4 +1,4 @@
-FROM node:22-slim AS builder
+FROM --platform=linux/amd64 node:22-slim AS builder
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -11,7 +11,7 @@ ARG VITE_AUTH0_CLIENT_ID
 ARG VITE_AUTH0_AUDIENCE
 RUN npm run build
 
-FROM nginx:alpine
+FROM --platform=linux/amd64 nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,18 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'VITE_API_URL=${_VITE_API_URL}'
+      - '--build-arg'
+      - 'VITE_AUTH0_DOMAIN=${_VITE_AUTH0_DOMAIN}'
+      - '--build-arg'
+      - 'VITE_AUTH0_CLIENT_ID=${_VITE_AUTH0_CLIENT_ID}'
+      - '--build-arg'
+      - 'VITE_AUTH0_AUDIENCE=${_VITE_AUTH0_AUDIENCE}'
+      - '-t'
+      - 'asia-northeast1-docker.pkg.dev/todo-app-489402/todo-repo/todo-front:$COMMIT_SHA'
+      - '.'
+
+images:
+  - 'asia-northeast1-docker.pkg.dev/todo-app-489402/todo-repo/todo-front:$COMMIT_SHA'

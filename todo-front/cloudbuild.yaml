@@ -15,6 +15,11 @@ steps:
       - 'asia-northeast1-docker.pkg.dev/todo-app-489402/todo-repo/todo-front:$COMMIT_SHA'
       - '.'
 
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-northeast1-docker.pkg.dev/todo-app-489402/todo-repo/todo-front:$COMMIT_SHA'
+
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:

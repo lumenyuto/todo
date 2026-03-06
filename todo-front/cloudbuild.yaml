@@ -16,3 +16,6 @@ steps:
 
 images:
   - 'asia-northeast1-docker.pkg.dev/todo-app-489402/todo-repo/todo-front:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

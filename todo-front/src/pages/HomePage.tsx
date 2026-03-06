@@ -1,9 +1,10 @@
 import { useEffect, useState, type FC } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import { Avatar, Box, Stack, Typography, Button, TextField, IconButton } from '@mui/material'
+import { Avatar, Box, Stack, Typography, Button, TextField, IconButton, Drawer } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
+import MenuIcon from '@mui/icons-material/Menu'
 
 import { TodoList } from '../components/TodoList'
 import { TodoForm } from '../components/TodoForm'
@@ -46,6 +47,22 @@ export const HomePage: FC = () => {
   const [tempName, setTempName] = useState('')
   const [teams, setTeams] = useState<Team[]>([])
   const [teamId, setTeamId] = useState<number | null>(null)
+
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen)
+  }
+
+  const handleLabelSelect = (label: Label | null) => {
+    onSelectLabel(label)
+    setMobileOpen(false)
+  }
+
+  const handleTeamSelect = (id: number | null) => {
+    onSelectTeam(id)
+    setMobileOpen(false)
+  }
 
   useEffect(() => {
     if (!user?.sub) return
@@ -180,6 +197,14 @@ export const HomePage: FC = () => {
           zIndex: 3,
         }}
       >
+        <IconButton
+          aria-label="open drawer"
+          edge="start"
+          onClick={handleDrawerToggle}
+          sx={{ mr: 1, display: { sm: 'none' } }}
+        >
+          <MenuIcon />
+        </IconButton>
         <Typography variant="h1">Todo App</Typography>
         <Stack
           direction="row"
@@ -238,13 +263,43 @@ export const HomePage: FC = () => {
           height: 'calc(100vh - 80px)',
         }}
       >
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{
+            keepMounted: true,
+          }}
+          sx={{
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: 240,
+              mt: '80px',
+              height: 'calc(100vh - 80px)',
+            },
+          }}
+        >
+          <SideNav
+            labels={labels}
+            onSelectLabel={handleLabelSelect}
+            filterLabelId={filterLabelId}
+            onSubmitNewLabel={onSubmitNewLabel}
+            onDeleteLabel={onDeleteLabel}
+            teams={teams}
+            teamId={teamId}
+            onSelectTeam={handleTeamSelect}
+            onSubmitNewTeam={onSubmitNewTeam}
+          />
+        </Drawer>
         <Box
           sx={{
             backgroundColor: 'white',
             borderRight: '1px solid gray',
-            width: { xs: '35%', sm: '200px' },
+            width: '200px',
             flexShrink: 0,
             overflowY: 'auto',
+            display: { xs: 'none', sm: 'block' },
           }}
         >
           <SideNav

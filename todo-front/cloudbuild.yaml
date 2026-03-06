@@ -1,6 +1,6 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    dir: todo-front
+    dir: 'todo-front'
     args:
       - 'build'
       - '--build-arg'

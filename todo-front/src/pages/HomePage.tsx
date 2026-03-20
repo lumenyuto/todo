@@ -23,6 +23,7 @@ import {
   updateTodoItem,
   updateTeamTodoItem,
   deleteTodoItem,
+  deleteTeamTodoItem,
 } from '../lib/api/todo'
 import {
   addUserItem,
@@ -125,7 +126,11 @@ export const HomePage: FC = () => {
 
   const onDelete = async (id: number) => {
     const token = await getToken()
-    await deleteTodoItem(token, id)
+    if (teamId !== null) {
+      await deleteTeamTodoItem(token, teamId, id)
+    } else {
+      await deleteTodoItem(token, id)
+    }
     const todos = await fetchTodos(token, teamId)
     setTodos(todos)
   }

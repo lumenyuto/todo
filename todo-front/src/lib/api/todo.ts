@@ -108,3 +108,15 @@ export const deleteTodoItem = async (token: string, id: number) => {
     throw new Error('delete todo request failed')
   }
 }
+
+export const deleteTeamTodoItem = async (token: string, teamId: number, id: number) => {
+  const res = await fetch(`${API_URL}/teams/${teamId}/todos/${id}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (!res.ok) {
+    throw new Error('delete team todo request failed')
+  }
+}

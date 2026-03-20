@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use sqlx::{FromRow, PgPool};
 use crate::models::{
     team::{CreateTeam, TeamEntity},
@@ -28,7 +29,7 @@ fn fold_entities(rows: Vec<TeamWithUserFromRow>) -> Vec<TeamEntity> {
         let mut teams = accum.iter_mut();
         while let Some(team) = teams.next() {
             if team.id == row.id {
-                if let (Some(user_id), Some(user_sub)) = 
+                if let (Some(user_id), Some(user_sub)) =
                     (row.user_id, row.user_sub.clone())
                 {
                     team.users.push(User {
@@ -62,13 +63,14 @@ fn fold_entities(rows: Vec<TeamWithUserFromRow>) -> Vec<TeamEntity> {
         });
     }
     accum
-} 
+}
 
-pub trait TeamRepository: Clone + std::marker::Send + std::marker::Sync + 'static {
-    fn create(&self, payload: CreateTeam) -> impl Future<Output = anyhow::Result<TeamEntity>> + Send;
-    fn find(&self, id: i32) -> impl Future<Output = anyhow::Result::<TeamEntity>> + Send;
-    fn all_by_user(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<TeamEntity>>> + Send;
-    fn is_member(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<bool>> + Send;
+#[async_trait]
+pub trait TeamRepository: Send + Sync + 'static {
+    async fn create(&self, payload: CreateTeam) -> anyhow::Result<TeamEntity>;
+    async fn find(&self, id: i32) -> anyhow::Result<TeamEntity>;
+    async fn all_by_user(&self, user_id: i32) -> anyhow::Result<Vec<TeamEntity>>;
+    async fn is_member(&self, id: i32, user_id: i32) -> anyhow::Result<bool>;
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +84,7 @@ impl TeamRepositoryForDb {
     }
 }
 
+#[async_trait]
 impl TeamRepository for TeamRepositoryForDb {
     async fn create(&self, payload: CreateTeam) -> anyhow::Result<TeamEntity> {
         let mut tx = self.pool
@@ -101,15 +104,16 @@ returning id, name
         sqlx::query(
             r#"
 insert into team_users (team_id, user_id)
-select $1, id
-from unnest ($2) as t(id)
+select $1, users.id
+from unnest ($2::text[]) as t(email)
+inner join users on users.email = t.email
             "#,
             )
             .bind(row.id)
-            .bind(payload.user_ids)
+            .bind(payload.user_emails)
             .execute(&mut * tx)
             .await?;
-        
+
         tx.commit().await?;
 
         let team = self.find(row.id).await?;
@@ -191,7 +195,6 @@ mod test {
 
 #[cfg(test)]
 pub mod test_utils {
-    use anyhow::Context;
     use::std::{
         collections::HashMap,
         sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -220,6 +223,7 @@ pub mod test_utils {
         }
     }
 
+    #[async_trait]
     impl TeamRepository for TeamRepositoryForMemory {
         async fn create(&self, payload: CreateTeam) -> anyhow::Result<TeamEntity> {
             todo!()

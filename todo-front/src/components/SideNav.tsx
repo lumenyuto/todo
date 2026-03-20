@@ -50,7 +50,7 @@ export const SideNav: FC<Props> = ({
   const [openLabelModal, setOpenLabelModal] = useState(false)
   const [openTeamModal, setOpenTeamModal] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
-  const [newTeamUserIds, setNewTeamUserIds] = useState('')
+  const [newTeamEmails, setNewTeamEmails] = useState('')
 
   const onSubmitLabel = () => {
     if (!editName) return
@@ -60,15 +60,13 @@ export const SideNav: FC<Props> = ({
 
   const onSubmitTeam = () => {
     if (!newTeamName) return
-    const userIds = newTeamUserIds
+    const emails = newTeamEmails
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s !== '')
-      .map(Number)
-      .filter((n) => !isNaN(n))
-    onSubmitNewTeam({ name: newTeamName, user_ids: userIds })
+    onSubmitNewTeam({ name: newTeamName, user_emails: emails })
     setNewTeamName('')
-    setNewTeamUserIds('')
+    setNewTeamEmails('')
     setOpenTeamModal(false)
   }
 
@@ -187,12 +185,12 @@ export const SideNav: FC<Props> = ({
               onChange={(e) => setNewTeamName(e.target.value)}
             />
             <TextField
-              label="member user IDs (comma separated)"
+              label="member emails (comma separated)"
               variant="filled"
               fullWidth
-              value={newTeamUserIds}
-              onChange={(e) => setNewTeamUserIds(e.target.value)}
-              placeholder="1, 2, 3"
+              value={newTeamEmails}
+              onChange={(e) => setNewTeamEmails(e.target.value)}
+              placeholder="user1@example.com, user2@example.com"
             />
             <Box textAlign="right">
               <Button onClick={onSubmitTeam} variant="contained">

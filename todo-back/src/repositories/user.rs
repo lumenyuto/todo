@@ -1,12 +1,14 @@
+use async_trait::async_trait;
 use sqlx::PgPool;
 use crate::models::user::{CreateUser, UpdateUser, User};
 use super::RepositoryError;
 
-pub trait UserRepository: Clone + std::marker::Send + std::marker::Sync + 'static {
-    fn create(&self, payload: CreateUser) -> impl Future<Output = anyhow::Result<User>> + Send;
-    fn find(&self, id: i32) -> impl Future<Output = anyhow::Result<User>> + Send;
-    fn find_by_sub(&self, sub: String) -> impl Future<Output = anyhow::Result<User>> + Send;
-    fn update_name(&self, sub: String, payload: UpdateUser) -> impl Future<Output = anyhow::Result<User>> + Send;
+#[async_trait]
+pub trait UserRepository: Send + Sync + 'static {
+    async fn create(&self, payload: CreateUser) -> anyhow::Result<User>;
+    async fn find(&self, id: i32) -> anyhow::Result<User>;
+    async fn find_by_sub(&self, sub: String) -> anyhow::Result<User>;
+    async fn update_name(&self, sub: String, payload: UpdateUser) -> anyhow::Result<User>;
 }
 
 #[derive(Debug, Clone)]
@@ -20,6 +22,7 @@ impl UserRepositoryForDb {
     }
 }
 
+#[async_trait]
 impl UserRepository for UserRepositoryForDb {
     async fn create(&self, payload: CreateUser) -> anyhow::Result<User> {
         let user = sqlx::query_as::<_, User>(
@@ -160,7 +163,8 @@ pub mod test_utils {
             self.store.read().unwrap()
         }
     }
-    
+
+    #[async_trait]
     impl UserRepository for UserRepositoryForMemory {
         async fn create(&self, payload: CreateUser) -> anyhow::Result<User> {
             let mut store = self.write_store_ref();

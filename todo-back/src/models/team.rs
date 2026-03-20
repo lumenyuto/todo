@@ -26,14 +26,14 @@ pub struct CreateTeam {
     #[validate(length(min = 1, message = "Can not be empty"))]
     #[validate(length(max = 100, message = "Over name length"))]
     pub name: String,
-    pub user_ids: Vec<i32>,
+    pub user_emails: Vec<String>,
 }
 
 impl CreateTeam {
-    pub fn new(name: String, user_ids: Vec<i32>) -> Self {
+    pub fn new(name: String, user_emails: Vec<String>) -> Self {
         Self {
             name,
-            user_ids,
+            user_emails,
         }
     }
 }
@@ -43,5 +43,5 @@ pub struct UpdateTeam {
     #[validate(length(min = 1, message = "Can not be empty"))]
     #[validate(length(max = 100, message = "Over name length"))]
     pub name: String,
-    pub user_ids: Vec<i32>,
+    pub user_emails: Vec<String>,
 }

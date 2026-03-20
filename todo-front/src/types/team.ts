@@ -8,5 +8,5 @@ export type Team = {
 
 export type NewTeamPayload = {
   name: string
-  user_ids: number[]
+  user_emails: string[]
 }

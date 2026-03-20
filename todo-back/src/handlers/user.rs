@@ -9,18 +9,12 @@ use crate::{
     AppState,
     middlewares::auth::AuthenticatedUser,
     models::user::{CreateUser, UpdateUser},
-    repositories::{
-        label::LabelRepository,
-        team::TeamRepository,
-        todo::TodoRepository,
-        user::UserRepository,
-    },
 };
 use super::ValidatedJson;
 
-pub async fn create_user<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn create_user(
     _user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<CreateUser>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -31,9 +25,9 @@ pub async fn create_user<Label: LabelRepository, Team: TeamRepository, Todo: Tod
     Ok((StatusCode::CREATED, Json(user)))
 }
 
-pub async fn find_me<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn find_me(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
         .find_by_sub(auth_user.sub)
@@ -43,9 +37,9 @@ pub async fn find_me<Label: LabelRepository, Team: TeamRepository, Todo: TodoRep
     Ok((StatusCode::OK, Json(user)))
 }
 
-pub async fn update_user<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn update_user(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<UpdateUser>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -78,6 +72,7 @@ mod test {
         http::{header, Method, Request},
     };
     use tower::ServiceExt;
+    use crate::repositories::user::UserRepository;
 
     const TEST_SUB: &str = "auth0|test_sub";
 

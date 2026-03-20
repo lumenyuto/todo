@@ -8,19 +8,13 @@ use axum::{
 use crate::{
     AppState,
     middlewares::auth::AuthenticatedUser,
-    models::label::{CreateLabel},
-    repositories::{
-        label::LabelRepository,
-        team::TeamRepository,
-        todo::TodoRepository,
-        user::UserRepository,
-    },
+    models::label::CreateLabel,
 };
 use super::ValidatedJson;
 
-pub async fn create_label<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn create_label(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<CreateLabel>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -36,9 +30,9 @@ pub async fn create_label<Label: LabelRepository, Team: TeamRepository, Todo: To
     Ok((StatusCode::CREATED, Json(label)))
 }
 
-pub async fn all_label<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn all_label(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
         .find_by_sub(auth_user.sub)
@@ -52,16 +46,16 @@ pub async fn all_label<Label: LabelRepository, Team: TeamRepository, Todo: TodoR
     Ok((StatusCode::OK, Json(labels)))
 }
 
-pub async fn delete_label<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn delete_label(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, StatusCode> {
     let user = state.user_repository
         .find_by_sub(auth_user.sub)
         .await
         .or(Err(StatusCode::NOT_FOUND))?;
-    
+
     state.label_repository
         .delete(id, user.id)
         .await
@@ -91,6 +85,7 @@ mod test {
         http::{header, Method, Request, StatusCode},
     };
     use tower::ServiceExt;
+    use crate::repositories::{label::LabelRepository, user::UserRepository};
 
     const TEST_SUB: &str = "auth0|test_sub";
 

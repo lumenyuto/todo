@@ -8,18 +8,12 @@ use crate::{
     AppState,
     middlewares::auth::AuthenticatedUser,
     models::todo::{CreateTodo, UpdateTodo},
-    repositories::{
-        label::LabelRepository,
-        team::TeamRepository,
-        todo::TodoRepository,
-        user::UserRepository,
-    },
 };
 use super::ValidatedJson;
 
-pub async fn create_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn create_user_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     ValidatedJson(payload): ValidatedJson<CreateTodo>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -35,9 +29,9 @@ pub async fn create_user_todo<Label: LabelRepository, Team: TeamRepository, Todo
     Ok((StatusCode::CREATED, Json(todo)))
 }
 
-pub async fn create_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn create_team_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     Path(team_id): Path<i32>,
     ValidatedJson(payload): ValidatedJson<CreateTodo>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -66,9 +60,9 @@ pub async fn create_team_todo<Label: LabelRepository, Team: TeamRepository, Todo
     Ok((StatusCode::CREATED, Json(todo)))
 }
 
-pub async fn find_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn find_user_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -91,9 +85,9 @@ pub async fn find_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: 
     Ok((StatusCode::OK, Json(todo)))
 }
 
-pub async fn all_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn all_user_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
         .find_by_sub(auth_user.sub)
@@ -107,9 +101,9 @@ pub async fn all_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: T
     Ok((StatusCode::OK, Json(todo)))
 }
 
-pub async fn all_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn all_team_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     Path(team_id): Path<i32>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
@@ -134,9 +128,9 @@ pub async fn all_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: T
     Ok((StatusCode::OK, Json(todo)))
 }
 
-pub async fn update_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn update_user_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     Path(id): Path<i32>,
     ValidatedJson(payload): ValidatedJson<UpdateTodo>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -165,9 +159,9 @@ pub async fn update_user_todo<Label: LabelRepository, Team: TeamRepository, Todo
     Ok((StatusCode::OK, Json(updated_todo)))
 }
 
-pub async fn update_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn update_team_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     Path((team_id, todo_id)): Path<(i32, i32)>,
     ValidatedJson(payload): ValidatedJson<UpdateTodo>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -202,9 +196,9 @@ pub async fn update_team_todo<Label: LabelRepository, Team: TeamRepository, Todo
     Ok((StatusCode::OK, Json(updated_todo)))
 }
 
-pub async fn delete_user_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn delete_user_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, StatusCode> {
     let user = state.user_repository
@@ -232,9 +226,9 @@ pub async fn delete_user_todo<Label: LabelRepository, Team: TeamRepository, Todo
     Ok(StatusCode::NO_CONTENT)
 }
 
-pub async fn delete_team_todo<Label: LabelRepository, Team: TeamRepository, Todo: TodoRepository, User: UserRepository>(
+pub async fn delete_team_todo(
     auth_user: AuthenticatedUser,
-    State(state): State<AppState<Label, Team, Todo, User>>,
+    State(state): State<AppState>,
     Path((team_id, todo_id)): Path<(i32, i32)>,
 ) -> Result<StatusCode, StatusCode> {
     let user = state.user_repository
@@ -291,6 +285,7 @@ mod test {
         http::{header, Method, Request, StatusCode},
     };
     use tower::ServiceExt;
+    use crate::repositories::{todo::TodoRepository, user::UserRepository};
 
     const TEST_SUB: &str = "auth0|test_sub";
 
@@ -346,11 +341,9 @@ mod test {
 
     #[tokio::test]
     async fn should_create_todo() {
-        todo!();
         let (labels, _label_ids) = label_fixture();
         let user_id = 1;
-        let team_id = 1;
-        let expected = TodoEntity::new(1, "should_create_todo".to_string(), labels.clone(), user_id, Some(team_id));
+        let expected = TodoEntity::new(1, "should_create_todo".to_string(), labels.clone(), user_id, None);
         let label_repository = LabelRepositoryForMemory::new();
         let team_repository = TeamRepositoryForMemory::new();
         let todo_repository = TodoRepositoryForMemory::new(labels.clone());

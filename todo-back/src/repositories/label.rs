@@ -1,11 +1,13 @@
+use async_trait::async_trait;
 use sqlx::PgPool;
 use crate::models::label::{CreateLabel, Label};
 use super::RepositoryError;
 
-pub trait LabelRepository: Clone + std::marker::Send + std::marker::Sync + 'static {
-    fn create(&self, user_id: i32, payload: CreateLabel) -> impl Future<Output = anyhow::Result<Label>> + Send;
-    fn all(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<Label>>> + Send;
-    fn delete(&self, id: i32, user_id: i32) -> impl Future<Output = anyhow::Result<()>> + Send;
+#[async_trait]
+pub trait LabelRepository: Send + Sync + 'static {
+    async fn create(&self, user_id: i32, payload: CreateLabel) -> anyhow::Result<Label>;
+    async fn all(&self, user_id: i32) -> anyhow::Result<Vec<Label>>;
+    async fn delete(&self, id: i32, user_id: i32) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +21,7 @@ impl LabelRepositoryForDb {
     }
 }
 
+#[async_trait]
 impl LabelRepository for LabelRepositoryForDb {
     async fn create(&self, user_id: i32, payload: CreateLabel) -> anyhow::Result<Label> {
         let label = sqlx::query_as::<_, Label>(
@@ -153,6 +156,7 @@ pub mod test_utils {
         }
     }
 
+    #[async_trait]
     impl LabelRepository for LabelRepositoryForMemory {
         async fn create(&self, user_id: i32, payload: CreateLabel) -> anyhow::Result<Label> {
             let mut store = self.write_store_ref();
@@ -172,7 +176,7 @@ pub mod test_utils {
             Ok(labels)
         }
 
-        async fn delete(&self, id: i32, user_id: i32) -> anyhow::Result<()> {
+        async fn delete(&self, id: i32, _user_id: i32) -> anyhow::Result<()> {
             let mut store = self.write_store_ref();
             store.remove(&id).ok_or(RepositoryError::NotFound(id))?;
             Ok(())

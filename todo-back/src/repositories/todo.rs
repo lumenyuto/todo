@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use sqlx::{FromRow, PgPool};
 use crate::models::{
     label::Label,
@@ -68,14 +69,14 @@ fn fold_entities(rows: Vec<TodoWithLabelFromRow>) -> Vec<TodoEntity> {
     accum
 }
 
-pub trait TodoRepository: Clone + std::marker::Send +
-std::marker::Sync + 'static {
-    fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
-    fn find(&self, id: i32) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
-    fn all(&self, user_id: i32) -> impl Future<Output = anyhow::Result<Vec<TodoEntity>>> + Send;
-    fn all_by_team(&self, team_id: i32) -> impl Future<Output = anyhow::Result<Vec<TodoEntity>>> + Send;
-    fn update(&self, id: i32, payload: UpdateTodo) -> impl Future<Output = anyhow::Result<TodoEntity>> + Send;
-    fn delete(&self, id: i32) -> impl Future<Output = anyhow::Result<()>> + Send;
+#[async_trait]
+pub trait TodoRepository: Send + Sync + 'static {
+    async fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> anyhow::Result<TodoEntity>;
+    async fn find(&self, id: i32) -> anyhow::Result<TodoEntity>;
+    async fn all(&self, user_id: i32) -> anyhow::Result<Vec<TodoEntity>>;
+    async fn all_by_team(&self, team_id: i32) -> anyhow::Result<Vec<TodoEntity>>;
+    async fn update(&self, id: i32, payload: UpdateTodo) -> anyhow::Result<TodoEntity>;
+    async fn delete(&self, id: i32) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +90,7 @@ impl TodoRepositoryForDb {
     }
 }
 
+#[async_trait]
 impl TodoRepository for TodoRepositoryForDb {
     async fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> anyhow::Result<TodoEntity> {
         let mut tx = self.pool
@@ -389,7 +391,7 @@ mod test {
         // create test team
         let team_repository = TeamRepositoryForDb::new(pool.clone());
         let test_team = team_repository
-            .create(CreateTeam::new("test_todo_team".to_string(), vec![test_user_id]))
+            .create(CreateTeam::new("test_todo_team".to_string(), vec!["todo_user@example.com".to_string()]))
             .await
             .expect("Failed to create test_todo_label");
         let test_team_id = test_team.id;
@@ -519,6 +521,7 @@ pub mod test_utils {
         }
     }
 
+    #[async_trait]
     impl TodoRepository for TodoRepositoryForMemory {
         async fn create(&self, user_id: i32, team_id: Option<i32>, payload: CreateTodo) -> anyhow::Result<TodoEntity> {
             let mut store = self.write_store_ref();
@@ -586,7 +589,7 @@ pub mod test_utils {
             let team_id = 1;
             let label = Label::new(id, "todo_label".to_string(), user_id);
             let labels = vec![label.clone()];
-            let expected = TodoEntity::new(id, text.clone(), labels.clone(), user_id, None);
+            let expected = TodoEntity::new(id, text.clone(), labels.clone(), user_id, Some(team_id));
 
             // create
             let repository = TodoRepositoryForMemory::new(labels.clone());

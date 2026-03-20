@@ -20,12 +20,11 @@ import { toggleLabels } from '../lib/toggleLabels'
 type Props = {
   todo: Todo
   labels: Label[]
-  teamId: number | null
   onUpdate: (todo: UpdateTodoPayload) => void
   onDelete: (id: number) => void
 }
 
-export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }) => {
+export const TodoItem: FC<Props> = ({ todo, labels, onUpdate, onDelete }) => {
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState('')
   const [editLabels, setEditLabels] = useState<Label[]>([])
@@ -37,7 +36,6 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
 
   const handleCompletedCheckbox: ChangeEventHandler = () => {
     onUpdate({
-      team_id: teamId,
       id: todo.id,
       completed: !todo.completed,
       label_ids: todo.labels.map((label) => label.id),
@@ -51,7 +49,6 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
   }
   const handleSave = () => {
     onUpdate({
-      team_id: teamId,
       id: todo.id,
       text: editText,
       label_ids: editLabels.map((label) => label.id),
@@ -60,7 +57,7 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
   }
 
   return (
-    <Card 
+    <Card
       sx={{
         p: { xs: 1.5, sm: 2.5 },
         mb: 2,
@@ -157,7 +154,7 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
             <Typography variant="h6" sx={{ color: '#2e7d32', fontWeight: 'bold' }}>
               タスクの編集
             </Typography>
-            
+
             <TextField
               fullWidth
               variant="outlined"
@@ -169,7 +166,7 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
                 '& .MuiOutlinedInput-root': { borderRadius: 2 }
               }}
             />
-            
+
             <Stack spacing={1}>
               <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
                 ラベル
@@ -198,9 +195,9 @@ export const TodoItem: FC<Props> = ({ todo, labels, teamId, onUpdate, onDelete }
               <Button onClick={handleCancel} color="inherit" sx={{ mr: 1 }}>
                 キャンセル
               </Button>
-              <Button 
+              <Button
                 onClick={handleSave}
-                variant="contained" 
+                variant="contained"
                 color="success"
                 sx={{ borderRadius: 2, boxShadow: 'none' }}
               >

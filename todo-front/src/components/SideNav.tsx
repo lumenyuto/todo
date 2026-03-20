@@ -21,7 +21,7 @@ import PersonIcon from '@mui/icons-material/Person'
 
 import { modalInnerStyle } from '../styles/modal'
 import type { Label, NewLabelPayload } from '../types/label'
-import type { Team, NewTeamPayload } from '../types/team'
+import type { Workspace, NewWorkspacePayload } from '../types/workspace'
 
 type Props = {
   labels: Label[]
@@ -29,10 +29,10 @@ type Props = {
   onSelectLabel: (label: Label | null) => void
   onSubmitNewLabel: (newLabel: NewLabelPayload) => void
   onDeleteLabel: (id: number) => void
-  teams: Team[]
-  teamId: number | null
-  onSelectTeam: (teamId: number | null) => void
-  onSubmitNewTeam: (payload: NewTeamPayload) => void
+  workspaces: Workspace[]
+  workspaceId: number | null
+  onSelectWorkspace: (workspaceId: number) => void
+  onSubmitNewWorkspace: (payload: NewWorkspacePayload) => void
 }
 
 export const SideNav: FC<Props> = ({
@@ -41,16 +41,16 @@ export const SideNav: FC<Props> = ({
   onSelectLabel,
   onSubmitNewLabel,
   onDeleteLabel,
-  teams,
-  teamId,
-  onSelectTeam,
-  onSubmitNewTeam,
+  workspaces,
+  workspaceId,
+  onSelectWorkspace,
+  onSubmitNewWorkspace,
 }) => {
   const [editName, setEditName] = useState('')
   const [openLabelModal, setOpenLabelModal] = useState(false)
-  const [openTeamModal, setOpenTeamModal] = useState(false)
-  const [newTeamName, setNewTeamName] = useState('')
-  const [newTeamEmails, setNewTeamEmails] = useState('')
+  const [openWorkspaceModal, setOpenWorkspaceModal] = useState(false)
+  const [newWorkspaceName, setNewWorkspaceName] = useState('')
+  const [newWorkspaceEmails, setNewWorkspaceEmails] = useState('')
 
   const onSubmitLabel = () => {
     if (!editName) return
@@ -58,54 +58,66 @@ export const SideNav: FC<Props> = ({
     setEditName('')
   }
 
-  const onSubmitTeam = () => {
-    if (!newTeamName) return
-    const emails = newTeamEmails
+  const onSubmitWorkspace = () => {
+    if (!newWorkspaceName) return
+    const emails = newWorkspaceEmails
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s !== '')
-    onSubmitNewTeam({ name: newTeamName, user_emails: emails })
-    setNewTeamName('')
-    setNewTeamEmails('')
-    setOpenTeamModal(false)
+    onSubmitNewWorkspace({ name: newWorkspaceName, user_emails: emails })
+    setNewWorkspaceName('')
+    setNewWorkspaceEmails('')
+    setOpenWorkspaceModal(false)
   }
+
+  const personalWorkspaces = workspaces.filter((w) => w.is_personal || w.users.length <= 1)
+  const teamWorkspaces = workspaces.filter((w) => !w.is_personal && w.users.length > 1)
 
   return (
     <>
       <List>
-        <ListItem disablePadding>
-          <ListItemButton
-            onClick={() => onSelectTeam(null)}
-            selected={teamId === null}
-          >
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <PersonIcon fontSize="small" />
-              <span>My Todos</span>
-            </Stack>
-          </ListItemButton>
-        </ListItem>
+        <ListSubheader>Workspace</ListSubheader>
 
-        <ListSubheader>Teams</ListSubheader>
-        {teams.map((team) => (
-          <ListItem key={team.id} disablePadding>
+        <ListSubheader sx={{ lineHeight: '30px', fontSize: '0.75rem', color: 'text.disabled', pl: 4 }}>
+          Personal
+        </ListSubheader>
+        {personalWorkspaces.map((w) => (
+          <ListItem key={w.id} disablePadding>
             <ListItemButton
-              onClick={() =>
-                onSelectTeam(team.id === teamId ? null : team.id)
-              }
-              selected={team.id === teamId}
+              onClick={() => onSelectWorkspace(w.id)}
+              selected={workspaceId === w.id}
+              sx={{ pl: 4 }}
+            >
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <PersonIcon fontSize="small" />
+                <span>{w.is_personal ? 'My Todos' : w.name}</span>
+              </Stack>
+            </ListItemButton>
+          </ListItem>
+        ))}
+
+        <ListSubheader sx={{ lineHeight: '30px', fontSize: '0.75rem', color: 'text.disabled', pl: 4 }}>
+          Team
+        </ListSubheader>
+        {teamWorkspaces.map((workspace) => (
+          <ListItem key={workspace.id} disablePadding>
+            <ListItemButton
+              onClick={() => onSelectWorkspace(workspace.id)}
+              selected={workspace.id === workspaceId}
+              sx={{ pl: 4 }}
             >
               <Stack direction="row" alignItems="center" spacing={1}>
                 <GroupsIcon fontSize="small" />
-                <span>{team.name}</span>
+                <span>{workspace.name}</span>
               </Stack>
             </ListItemButton>
           </ListItem>
         ))}
         <ListItem disablePadding>
-          <ListItemButton onClick={() => setOpenTeamModal(true)}>
+          <ListItemButton onClick={() => setOpenWorkspaceModal(true)} sx={{ pl: 4 }}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <AddIcon fontSize="small" />
-              <span>create team</span>
+              <span>create workspace</span>
             </Stack>
           </ListItemButton>
         </ListItem>
@@ -173,27 +185,27 @@ export const SideNav: FC<Props> = ({
         </Box>
       </Modal>
 
-      <Modal open={openTeamModal} onClose={() => setOpenTeamModal(false)}>
+      <Modal open={openWorkspaceModal} onClose={() => setOpenWorkspaceModal(false)}>
         <Box sx={modalInnerStyle}>
           <Stack spacing={3}>
-            <Typography variant="subtitle1">create team</Typography>
+            <Typography variant="subtitle1">create workspace</Typography>
             <TextField
-              label="team name"
+              label="workspace name"
               variant="filled"
               fullWidth
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
+              value={newWorkspaceName}
+              onChange={(e) => setNewWorkspaceName(e.target.value)}
             />
             <TextField
               label="member emails (comma separated)"
               variant="filled"
               fullWidth
-              value={newTeamEmails}
-              onChange={(e) => setNewTeamEmails(e.target.value)}
+              value={newWorkspaceEmails}
+              onChange={(e) => setNewWorkspaceEmails(e.target.value)}
               placeholder="user1@example.com, user2@example.com"
             />
             <Box textAlign="right">
-              <Button onClick={onSubmitTeam} variant="contained">
+              <Button onClick={onSubmitWorkspace} variant="contained">
                 create
               </Button>
             </Box>

@@ -11,19 +11,18 @@ pub struct TodoEntity {
     pub completed: bool,
     pub labels: Vec<Label>,
     pub user_id: i32,
-    pub team_id: Option<i32>,
-
+    pub workspace_id: i32,
 }
 
 impl TodoEntity {
-    pub fn new(id: i32, text:String, labels: Vec<Label>, user_id: i32, team_id: Option<i32>) -> Self {
+    pub fn new(id: i32, text: String, labels: Vec<Label>, user_id: i32, workspace_id: i32) -> Self {
         Self {
             id,
             text,
             completed: false,
             labels,
             user_id,
-            team_id,
+            workspace_id,
         }
     }
 }
@@ -43,6 +42,11 @@ impl CreateTodo {
             label_ids,
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct RecommendedTodo {
+    pub text: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Validate)]

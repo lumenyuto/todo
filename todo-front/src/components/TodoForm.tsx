@@ -19,10 +19,9 @@ import { modalInnerStyle } from '../styles/modal'
 type Props = {
   onSubmit: (newTodo: NewTodoPayload) => void
   labels: Label[]
-  teamId: number | null
 }
 
-export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId }) => {
+export const TodoForm: FC<Props> = ({ onSubmit, labels }) => {
   const [editText, setEditText] = useState('')
   const [editLabels, setEditLabels] = useState<Label[]>([])
   const [openLabelModal, setOpenLabelModal] = useState(false)
@@ -31,7 +30,6 @@ export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId }) => {
     if (!editText) return
 
     onSubmit({
-      team_id: teamId,
       text: editText,
       label_ids: editLabels.map((label) => label.id),
     })
@@ -79,7 +77,7 @@ export const TodoForm: FC<Props> = ({ onSubmit, labels, teamId }) => {
               select label
             </Button>
           </Grid>
-          
+
           <Grid size={{ xs: 12, sm: 6 }}>
             <Button
               onClick={addTodoHandler}

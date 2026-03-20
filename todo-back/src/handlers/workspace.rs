@@ -7,11 +7,11 @@ use axum::{
 use crate::{
     AppState,
     middlewares::auth::AuthenticatedUser,
-    models::team::CreateTeam,
+    models::workspace::CreateWorkspace,
 };
 use super::ValidatedJson;
 
-pub async fn all_team(
+pub async fn all_workspace(
     auth_user: AuthenticatedUser,
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -20,34 +20,29 @@ pub async fn all_team(
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    let teams = state.team_repository
+    let workspaces = state.workspace_repository
         .all_by_user(user.id)
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    Ok(Json(teams))
+    Ok(Json(workspaces))
 }
 
-pub async fn create_team(
+pub async fn create_workspace(
     auth_user: AuthenticatedUser,
     State(state): State<AppState>,
-    ValidatedJson(mut payload): ValidatedJson<CreateTeam>,
+    ValidatedJson(payload): ValidatedJson<CreateWorkspace>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let user = state.user_repository
         .find_by_sub(auth_user.sub.clone())
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    if let Some(ref email) = user.email {
-        if !payload.user_emails.contains(email) {
-            payload.user_emails.push(email.clone());
-        }
-    }
-
-    let team = state.team_repository
-        .create(payload)
+    let workspace = state.workspace_repository
+        .create(user.id, payload)
         .await
         .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    Ok((StatusCode::CREATED, Json(team)))
+    Ok((StatusCode::CREATED, Json(workspace)))
 }
+

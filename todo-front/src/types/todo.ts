@@ -1,4 +1,4 @@
-import type { Label } from './label' 
+import type { Label } from './label'
 
 export type Todo = {
   id: number
@@ -6,17 +6,19 @@ export type Todo = {
   completed: boolean
   labels: Label[]
   user_id: number
-  team_id: number | null
+  workspace_id: number
 }
 
 export type NewTodoPayload = {
-  team_id: number | null
   text: string
   label_ids: number[]
 }
 
+export type RecommendedTodo = {
+  text: string
+}
+
 export type UpdateTodoPayload = {
-  team_id: number | null
   id: number
   text?: string
   completed?: boolean

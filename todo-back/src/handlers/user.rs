@@ -61,7 +61,7 @@ mod test {
         },
         repositories::{
             label::test_utils::LabelRepositoryForMemory,
-            team::test_utils::TeamRepositoryForMemory,
+            workspace::test_utils::WorkspaceRepositoryForMemory,
             todo::test_utils::TodoRepositoryForMemory,
             user::test_utils::UserRepositoryForMemory,
         },
@@ -138,9 +138,10 @@ mod test {
         );
         let res = create_app(
             LabelRepositoryForMemory::new(),
-            TeamRepositoryForMemory::new(),
+            WorkspaceRepositoryForMemory::new(),
             TodoRepositoryForMemory::new(labels.clone()),
             UserRepositoryForMemory::new(),
+            String::new(),
             )
             .oneshot(req)
             .await
@@ -172,9 +173,10 @@ mod test {
         let req = build_req_with_empty(Method::GET, "/users/me");
         let res = create_app(
             LabelRepositoryForMemory::new(),
-            TeamRepositoryForMemory::new(),
+            WorkspaceRepositoryForMemory::new(),
             TodoRepositoryForMemory::new(labels.clone()),
             user_repository,
+            String::new(),
         )
         .oneshot(req)
         .await

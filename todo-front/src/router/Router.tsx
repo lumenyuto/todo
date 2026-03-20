@@ -2,11 +2,12 @@ import { Route, Routes } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import { HomePage } from '../pages/HomePage'
 import { LandingPage } from '../pages/LandingPage'
+import { LoadingPage } from '../pages/LoadingPage'
 
 const Router = () => {
   const { isAuthenticated, isLoading } = useAuth0()
 
-  if (isLoading) return <div>Loading</div>
+  if (isLoading) return <LoadingPage />
 
   return (
     <Routes>

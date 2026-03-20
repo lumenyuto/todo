@@ -1,16 +1,16 @@
 import { useEffect, useState, type FC } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import { Avatar, Box, Stack, Typography, Button, TextField, IconButton, Drawer, Paper } from '@mui/material'
+import { Avatar, Box, Stack, Typography, Button, TextField, IconButton, Drawer } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import MenuIcon from '@mui/icons-material/Menu'
-import AddIcon from '@mui/icons-material/Add'
 
 import { TodoList } from '../components/TodoList'
 import { TodoForm } from '../components/TodoForm'
 import { RecommendButton } from '../components/RecommendButton'
 import { SideNav } from '../components/SideNav'
+import { SetupPage } from './SetupPage'
 
 import {
   addLabelItem,
@@ -48,7 +48,6 @@ export const HomePage: FC = () => {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [workspaceId, setWorkspaceId] = useState<number | null>(null)
   const [showSetup, setShowSetup] = useState(false)
-  const [setupLoading, setSetupLoading] = useState(false)
 
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -66,6 +65,27 @@ export const HomePage: FC = () => {
     setMobileOpen(false)
   }
 
+  const initWorkspaces = async () => {
+    const token = await getAccessTokenSilently()
+    const [labels, fetchedWorkspaces] = await Promise.all([
+      getLabelItems(token),
+      getWorkspaces(token).catch(() => [] as Workspace[]),
+    ])
+    setLabels(labels)
+    setWorkspaces(fetchedWorkspaces)
+
+    if (fetchedWorkspaces.length === 0) {
+      setShowSetup(true)
+    } else {
+      setShowSetup(false)
+      const personalWs = fetchedWorkspaces.find((w) => w.is_personal)
+      const defaultWs = personalWs ?? fetchedWorkspaces[0]
+      setWorkspaceId(defaultWs.id)
+      const todos = await getTodoItems(token, defaultWs.id)
+      setTodos(todos)
+    }
+  }
+
   useEffect(() => {
     if (!user?.sub) return
     ;(async () => {
@@ -79,46 +99,11 @@ export const HomePage: FC = () => {
         },
       )
       setUserName(User.name)
-      const [labels, fetchedWorkspaces] = await Promise.all([
-        getLabelItems(token),
-        getWorkspaces(token).catch(() => [] as Workspace[]),
-      ])
-      setLabels(labels)
-      setWorkspaces(fetchedWorkspaces)
-
-      if (fetchedWorkspaces.length === 0) {
-        setShowSetup(true)
-      } else {
-        const personalWs = fetchedWorkspaces.find((w) => w.is_personal)
-        const defaultWs = personalWs ?? fetchedWorkspaces[0]
-        setWorkspaceId(defaultWs.id)
-        const todos = await getTodoItems(token, defaultWs.id)
-        setTodos(todos)
-      }
+      await initWorkspaces()
     })()
   }, [getAccessTokenSilently, user?.sub])
 
   const getToken = () => getAccessTokenSilently()
-
-  // setup
-  const onCreatePersonalWorkspace = async () => {
-    setSetupLoading(true)
-    try {
-      const token = await getToken()
-      const ws = await createWorkspace(token, {
-        name: `${userName}'s workspace`,
-        is_personal: true,
-      })
-      const fetchedWorkspaces = await getWorkspaces(token).catch(() => [ws])
-      setWorkspaces(fetchedWorkspaces)
-      setWorkspaceId(ws.id)
-      const todos = await getTodoItems(token, ws.id)
-      setTodos(todos)
-      setShowSetup(false)
-    } finally {
-      setSetupLoading(false)
-    }
-  }
 
   //todo
   const onSubmit = async (payload: NewTodoPayload) => {
@@ -213,211 +198,171 @@ export const HomePage: FC = () => {
 
   const currentWorkspace = workspaces.find((w) => w.id === workspaceId)
 
+  if (showSetup) {
+    return <SetupPage userName={userName} onComplete={initWorkspaces} />
+  }
+
+  const sidebarWidth = 220
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <Box sx={{ display: 'flex', height: '100vh' }}>
+      {/* Mobile Drawer — full height */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: 'block', sm: 'none' },
+          '& .MuiDrawer-paper': {
+            boxSizing: 'border-box',
+            width: sidebarWidth,
+          },
+        }}
+      >
+        <SideNav
+          labels={labels}
+          onSelectLabel={handleLabelSelect}
+          filterLabelId={filterLabelId}
+          onSubmitNewLabel={onSubmitNewLabel}
+          onDeleteLabel={onDeleteLabel}
+          workspaces={workspaces}
+          workspaceId={workspaceId}
+          onSelectWorkspace={handleWorkspaceSelect}
+          onSubmitNewWorkspace={onSubmitNewWorkspace}
+        />
+      </Drawer>
+
+      {/* Desktop Sidebar — full height */}
       <Box
         sx={{
           backgroundColor: 'white',
-          borderBottom: '1px solid gray',
-          display: 'flex',
-          alignItems: 'center',
-          position: 'fixed',
-          top: 0,
-          p: { xs: 1, sm: 2 },
-          width: '100%',
-          height: 80,
-          zIndex: 3,
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          width: sidebarWidth,
+          flexShrink: 0,
+          overflowY: 'auto',
+          display: { xs: 'none', sm: 'block' },
         }}
       >
-        <IconButton
-          aria-label="open drawer"
-          edge="start"
-          onClick={handleDrawerToggle}
-          sx={{ mr: 1, display: { sm: 'none' } }}
-        >
-          <MenuIcon />
-        </IconButton>
-        <Typography variant="h1">Todo App</Typography>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="flex-end"
-          gap={{ xs: 1, sm: 2 }}
-          sx={{ flex: 1 }}
-        >
-          <Avatar
-            sx={{
-              width: 32,
-              height: 32,
-              fontSize: 14,
-              bgcolor: 'primary.main',
-            }}
-          >
-            {userName ? userName.charAt(0).toUpperCase() : '?'}
-          </Avatar>
-          {isEditingUserName ? (
-            <>
-              <TextField
-                size="small"
-                value={tempName}
-                onChange={(e) => setTempName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') onUpdateUser() }}
-                autoFocus
-                sx={{ width: 150 }}
-              />
-              <IconButton size="small" onClick={onUpdateUser}><CheckIcon fontSize="small" /></IconButton>
-              <IconButton size="small" onClick={() => setIsEditingUserName(false)}><CloseIcon fontSize="small" /></IconButton>
-            </>
-          ) : (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>
-                {userName} さん
-              </Typography>
-              <IconButton size="small" onClick={() => { setTempName(userName); setIsEditingUserName(true) }}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </>
-          )}
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
-            sx={{ borderRadius: '20px', textTransform: 'none' }}
-          >
-            Logout
-          </Button>
-        </Stack>
+        <SideNav
+          labels={labels}
+          onSelectLabel={onSelectLabel}
+          filterLabelId={filterLabelId}
+          onSubmitNewLabel={onSubmitNewLabel}
+          onDeleteLabel={onDeleteLabel}
+          workspaces={workspaces}
+          workspaceId={workspaceId}
+          onSelectWorkspace={onSelectWorkspace}
+          onSubmitNewWorkspace={onSubmitNewWorkspace}
+        />
       </Box>
-      <Box
-        sx={{
-          display: 'flex',
-          mt: '80px',
-          height: 'calc(100vh - 80px)',
-        }}
-      >
-        {showSetup ? (
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              p: { xs: 2, sm: 5 },
-            }}
+
+      {/* Right side: Header + Content */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Header */}
+        <Box
+          sx={{
+            backgroundColor: 'white',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            display: 'flex',
+            alignItems: 'center',
+            px: { xs: 1, sm: 3 },
+            height: 64,
+            flexShrink: 0,
+          }}
+        >
+          <IconButton
+            aria-label="open drawer"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 1, display: { sm: 'none' } }}
           >
-            <Paper
-              elevation={3}
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h1" sx={{ display: { xs: 'block', sm: 'none' } }}>
+            Todo App
+          </Typography>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="flex-end"
+            gap={{ xs: 1, sm: 2 }}
+            sx={{ flex: 1 }}
+          >
+            <Avatar
               sx={{
-                p: { xs: 4, sm: 6 },
-                borderRadius: 4,
-                textAlign: 'center',
-                maxWidth: 480,
-                width: '100%',
+                width: 32,
+                height: 32,
+                fontSize: 14,
+                bgcolor: 'primary.main',
               }}
             >
-              <Stack spacing={3} alignItems="center">
-                <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
-                  Workspaceを作成しましょう
+              {userName ? userName.charAt(0).toUpperCase() : '?'}
+            </Avatar>
+            {isEditingUserName ? (
+              <>
+                <TextField
+                  size="small"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') onUpdateUser() }}
+                  autoFocus
+                  sx={{ width: 150 }}
+                />
+                <IconButton size="small" onClick={onUpdateUser}><CheckIcon fontSize="small" /></IconButton>
+                <IconButton size="small" onClick={() => setIsEditingUserName(false)}><CloseIcon fontSize="small" /></IconButton>
+              </>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' } }}>
+                  {userName} さん
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Todoを管理するために、まず個人Workspaceを作成してください。
+                <IconButton size="small" onClick={() => { setTempName(userName); setIsEditingUserName(true) }}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </>
+            )}
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+              sx={{ borderRadius: '20px' }}
+            >
+              Logout
+            </Button>
+          </Stack>
+        </Box>
+
+        {/* Main Content */}
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            justifyContent: 'center',
+            p: { xs: 2, sm: 5 },
+            overflowY: 'auto',
+          }}
+        >
+          <Box maxWidth={700} width="100%">
+            <Stack spacing={5}>
+              {currentWorkspace && !currentWorkspace.is_personal && (
+                <Typography variant="h2" color="primary">
+                  {currentWorkspace.name}
                 </Typography>
-                <Button
-                  variant="contained"
-                  color="success"
-                  size="large"
-                  startIcon={<AddIcon />}
-                  onClick={onCreatePersonalWorkspace}
-                  disabled={setupLoading}
-                  sx={{ borderRadius: 3, px: 4, py: 1.5 }}
-                >
-                  {setupLoading ? '作成中...' : '個人Workspaceを作成'}
-                </Button>
-              </Stack>
-            </Paper>
+              )}
+              <TodoForm onSubmit={onSubmit} labels={labels} />
+              <RecommendButton onRecommend={onRecommend} onAddTodos={onAddRecommendedTodos} />
+              <TodoList
+                todos={dispTodo}
+                labels={labels}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            </Stack>
           </Box>
-        ) : (
-          <>
-            <Drawer
-              variant="temporary"
-              open={mobileOpen}
-              onClose={handleDrawerToggle}
-              ModalProps={{
-                keepMounted: true,
-              }}
-              sx={{
-                display: { xs: 'block', sm: 'none' },
-                '& .MuiDrawer-paper': {
-                  boxSizing: 'border-box',
-                  width: 240,
-                  mt: '80px',
-                  height: 'calc(100vh - 80px)',
-                },
-              }}
-            >
-              <SideNav
-                labels={labels}
-                onSelectLabel={handleLabelSelect}
-                filterLabelId={filterLabelId}
-                onSubmitNewLabel={onSubmitNewLabel}
-                onDeleteLabel={onDeleteLabel}
-                workspaces={workspaces}
-                workspaceId={workspaceId}
-                onSelectWorkspace={handleWorkspaceSelect}
-                onSubmitNewWorkspace={onSubmitNewWorkspace}
-              />
-            </Drawer>
-            <Box
-              sx={{
-                backgroundColor: 'white',
-                borderRight: '1px solid gray',
-                width: '200px',
-                flexShrink: 0,
-                overflowY: 'auto',
-                display: { xs: 'none', sm: 'block' },
-              }}
-            >
-              <SideNav
-                labels={labels}
-                onSelectLabel={onSelectLabel}
-                filterLabelId={filterLabelId}
-                onSubmitNewLabel={onSubmitNewLabel}
-                onDeleteLabel={onDeleteLabel}
-                workspaces={workspaces}
-                workspaceId={workspaceId}
-                onSelectWorkspace={onSelectWorkspace}
-                onSubmitNewWorkspace={onSubmitNewWorkspace}
-              />
-            </Box>
-            <Box
-              sx={{
-                flex: 1,
-                display: 'flex',
-                justifyContent: 'center',
-                p: { xs: 2, sm: 5 },
-                overflowY: 'auto',
-              }}
-            >
-              <Box maxWidth={700} width="100%">
-                <Stack spacing={5}>
-                  {currentWorkspace && !currentWorkspace.is_personal && (
-                    <Typography variant="h2" color="primary">
-                      {currentWorkspace.name}
-                    </Typography>
-                  )}
-                  <TodoForm onSubmit={onSubmit} labels={labels} />
-                  <RecommendButton onRecommend={onRecommend} onAddTodos={onAddRecommendedTodos} />
-                  <TodoList
-                    todos={dispTodo}
-                    labels={labels}
-                    onUpdate={onUpdate}
-                    onDelete={onDelete}
-                  />
-                </Stack>
-              </Box>
-            </Box>
-          </>
-        )}
+        </Box>
       </Box>
     </Box>
   )

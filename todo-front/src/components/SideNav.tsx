@@ -2,22 +2,26 @@ import { useState, type FC } from 'react'
 import {
   Box,
   Button,
+  Chip,
+  Divider,
   IconButton,
   List,
   ListItem,
   ListItemButton,
-  ListSubheader,
+  ListItemIcon,
+  ListItemText,
   Modal,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
 import LabelIcon from '@mui/icons-material/Label'
-import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import GroupsIcon from '@mui/icons-material/Groups'
 import AddIcon from '@mui/icons-material/Add'
 import PersonIcon from '@mui/icons-material/Person'
+import WorkspacesIcon from '@mui/icons-material/Workspaces'
+import StyleIcon from '@mui/icons-material/Style'
 
 import { modalInnerStyle } from '../styles/modal'
 import type { Label, NewLabelPayload } from '../types/label'
@@ -73,56 +77,164 @@ export const SideNav: FC<Props> = ({
   const personalWorkspaces = workspaces.filter((w) => w.is_personal || w.users.length <= 1)
   const teamWorkspaces = workspaces.filter((w) => !w.is_personal && w.users.length > 1)
 
-  return (
-    <>
-      <List>
-        <ListSubheader>Workspace</ListSubheader>
+  const sectionHeaderSx = {
+    px: 2,
+    pt: 2.5,
+    pb: 0.5,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+  }
 
-        <ListSubheader sx={{ lineHeight: '30px', fontSize: '0.75rem', color: 'text.disabled', pl: 4 }}>
+  const subHeaderSx = {
+    px: 2,
+    pt: 1.5,
+    pb: 0.5,
+  }
+
+  const selectedItemSx = {
+    borderRadius: 2,
+    mx: 1,
+    '&.Mui-selected': {
+      bgcolor: 'rgba(46, 125, 50, 0.08)',
+      '&:hover': {
+        bgcolor: 'rgba(46, 125, 50, 0.12)',
+      },
+    },
+    '&:hover': {
+      borderRadius: 2,
+      bgcolor: 'rgba(0, 0, 0, 0.04)',
+    },
+  }
+
+  return (
+    <Box sx={{ py: 1 }}>
+      {/* App Title */}
+      <Box sx={{ px: 2, pt: 1.5, pb: 2 }}>
+        <Typography variant="h1" sx={{ color: 'primary.main' }}>
+          Todo App
+        </Typography>
+      </Box>
+      <Divider sx={{ mx: 2, mb: 1 }} />
+
+      {/* Workspace Section */}
+      <Box sx={sectionHeaderSx}>
+        <WorkspacesIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', letterSpacing: 0.5 }}>
+          Workspace
+        </Typography>
+      </Box>
+
+      {/* Personal */}
+      <Box sx={subHeaderSx}>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8 }}>
           Personal
-        </ListSubheader>
+        </Typography>
+      </Box>
+      <List disablePadding dense>
         {personalWorkspaces.map((w) => (
           <ListItem key={w.id} disablePadding>
             <ListItemButton
               onClick={() => onSelectWorkspace(w.id)}
               selected={workspaceId === w.id}
-              sx={{ pl: 4 }}
+              sx={selectedItemSx}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <PersonIcon fontSize="small" />
-                <span>{w.is_personal ? 'My Todos' : w.name}</span>
-              </Stack>
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <PersonIcon fontSize="small" sx={{ color: workspaceId === w.id ? 'primary.main' : 'text.secondary' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary={w.is_personal ? 'My Todos' : w.name}
+                primaryTypographyProps={{
+                  variant: 'body2',
+                  fontWeight: workspaceId === w.id ? 600 : 400,
+                  color: workspaceId === w.id ? 'primary.main' : 'text.primary',
+                }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
+      </List>
 
-        <ListSubheader sx={{ lineHeight: '30px', fontSize: '0.75rem', color: 'text.disabled', pl: 4 }}>
+      {/* Team */}
+      <Box sx={subHeaderSx}>
+        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.8 }}>
           Team
-        </ListSubheader>
-        {teamWorkspaces.map((workspace) => (
-          <ListItem key={workspace.id} disablePadding>
+        </Typography>
+      </Box>
+      <List disablePadding dense>
+        {teamWorkspaces.map((w) => (
+          <ListItem key={w.id} disablePadding>
             <ListItemButton
-              onClick={() => onSelectWorkspace(workspace.id)}
-              selected={workspace.id === workspaceId}
-              sx={{ pl: 4 }}
+              onClick={() => onSelectWorkspace(w.id)}
+              selected={w.id === workspaceId}
+              sx={selectedItemSx}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <GroupsIcon fontSize="small" />
-                <span>{workspace.name}</span>
-              </Stack>
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <GroupsIcon fontSize="small" sx={{ color: w.id === workspaceId ? 'primary.main' : 'text.secondary' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary={w.name}
+                primaryTypographyProps={{
+                  variant: 'body2',
+                  fontWeight: w.id === workspaceId ? 600 : 400,
+                  color: w.id === workspaceId ? 'primary.main' : 'text.primary',
+                }}
+              />
+              <Chip
+                label={`${w.users.length}`}
+                size="small"
+                sx={{ height: 20, fontSize: 11, bgcolor: 'rgba(0,0,0,0.06)' }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
+        {teamWorkspaces.length === 0 && (
+          <Typography variant="caption" sx={{ px: 3, py: 0.5, color: 'text.disabled', display: 'block' }}>
+            まだありません
+          </Typography>
+        )}
         <ListItem disablePadding>
-          <ListItemButton onClick={() => setOpenWorkspaceModal(true)} sx={{ pl: 4 }}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <AddIcon fontSize="small" />
-              <span>create workspace</span>
-            </Stack>
+          <ListItemButton onClick={() => setOpenWorkspaceModal(true)} sx={{ ...selectedItemSx, color: 'primary.main' }}>
+            <ListItemIcon sx={{ minWidth: 32 }}>
+              <AddIcon fontSize="small" sx={{ color: 'primary.main' }} />
+            </ListItemIcon>
+            <ListItemText
+              primary="新規作成"
+              primaryTypographyProps={{ variant: 'body2', fontWeight: 500, color: 'primary.main' }}
+            />
           </ListItemButton>
         </ListItem>
+      </List>
 
-        <ListSubheader>Labels</ListSubheader>
+      <Divider sx={{ my: 1.5, mx: 2 }} />
+
+      {/* Labels Section */}
+      <Box sx={sectionHeaderSx}>
+        <StyleIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', letterSpacing: 0.5 }}>
+          Labels
+        </Typography>
+      </Box>
+      <List disablePadding dense>
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={() => onSelectLabel(null)}
+            selected={filterLabelId === null}
+            sx={selectedItemSx}
+          >
+            <ListItemIcon sx={{ minWidth: 32 }}>
+              <LabelIcon fontSize="small" sx={{ color: filterLabelId === null ? 'primary.main' : 'text.secondary' }} />
+            </ListItemIcon>
+            <ListItemText
+              primary="すべて"
+              primaryTypographyProps={{
+                variant: 'body2',
+                fontWeight: filterLabelId === null ? 600 : 400,
+                color: filterLabelId === null ? 'primary.main' : 'text.primary',
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
         {labels.map((label) => (
           <ListItem key={label.id} disablePadding>
             <ListItemButton
@@ -130,54 +242,88 @@ export const SideNav: FC<Props> = ({
                 onSelectLabel(label.id === filterLabelId ? null : label)
               }
               selected={label.id === filterLabelId}
+              sx={selectedItemSx}
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <LabelIcon fontSize="small" />
-                <span>{label.name}</span>
-              </Stack>
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <LabelIcon fontSize="small" sx={{ color: label.id === filterLabelId ? 'primary.main' : 'text.secondary' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary={label.name}
+                primaryTypographyProps={{
+                  variant: 'body2',
+                  fontWeight: label.id === filterLabelId ? 600 : 400,
+                  color: label.id === filterLabelId ? 'primary.main' : 'text.primary',
+                }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
         <ListItem disablePadding>
-          <ListItemButton onClick={() => setOpenLabelModal(true)}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <EditIcon fontSize="small" />
-              <span>edit label</span>
-            </Stack>
+          <ListItemButton onClick={() => setOpenLabelModal(true)} sx={{ ...selectedItemSx, color: 'text.secondary' }}>
+            <ListItemIcon sx={{ minWidth: 32 }}>
+              <AddIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+            </ListItemIcon>
+            <ListItemText
+              primary="ラベル管理"
+              primaryTypographyProps={{ variant: 'body2', fontWeight: 500, color: 'text.secondary' }}
+            />
           </ListItemButton>
         </ListItem>
       </List>
+
+      {/* Label Modal */}
       <Modal open={openLabelModal} onClose={() => setOpenLabelModal(false)}>
         <Box sx={modalInnerStyle}>
           <Stack spacing={3}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle1">new label</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              ラベル管理
+            </Typography>
+            <Stack direction="row" spacing={1} alignItems="flex-end">
               <TextField
-                label="new label"
-                variant="filled"
+                label="新しいラベル"
+                variant="outlined"
+                size="small"
                 fullWidth
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onSubmitLabel() }}
               />
-              <Box textAlign="right">
-                <Button onClick={onSubmitLabel}>submit</Button>
-              </Box>
+              <Button
+                onClick={onSubmitLabel}
+                variant="contained"
+                size="small"
+                disabled={!editName}
+                sx={{ whiteSpace: 'nowrap', minWidth: 64 }}
+              >
+                追加
+              </Button>
             </Stack>
-            <Stack spacing={1}>
+            {labels.length > 0 && <Divider />}
+            <Stack spacing={0.5}>
               {labels.map((label) => (
                 <Stack
                   key={label.id}
                   direction="row"
                   alignItems="center"
-                  spacing={1}
+                  justifyContent="space-between"
+                  sx={{
+                    px: 1.5,
+                    py: 0.75,
+                    borderRadius: 2,
+                    '&:hover': { bgcolor: 'rgba(0,0,0,0.03)' },
+                  }}
                 >
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <LabelIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                    <Typography variant="body2">{label.name}</Typography>
+                  </Stack>
                   <IconButton
                     size="small"
                     onClick={() => onDeleteLabel(label.id)}
+                    sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
-                  <span>{label.name}</span>
                 </Stack>
               ))}
             </Stack>
@@ -185,33 +331,46 @@ export const SideNav: FC<Props> = ({
         </Box>
       </Modal>
 
+      {/* Workspace Modal */}
       <Modal open={openWorkspaceModal} onClose={() => setOpenWorkspaceModal(false)}>
         <Box sx={modalInnerStyle}>
           <Stack spacing={3}>
-            <Typography variant="subtitle1">create workspace</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Workspace を作成
+            </Typography>
             <TextField
-              label="workspace name"
-              variant="filled"
+              label="Workspace名"
+              variant="outlined"
+              size="small"
               fullWidth
               value={newWorkspaceName}
               onChange={(e) => setNewWorkspaceName(e.target.value)}
             />
             <TextField
-              label="member emails (comma separated)"
-              variant="filled"
+              label="メンバーのメール（カンマ区切り）"
+              variant="outlined"
+              size="small"
               fullWidth
               value={newWorkspaceEmails}
               onChange={(e) => setNewWorkspaceEmails(e.target.value)}
               placeholder="user1@example.com, user2@example.com"
             />
-            <Box textAlign="right">
-              <Button onClick={onSubmitWorkspace} variant="contained">
-                create
+            <Stack direction="row" justifyContent="flex-end" spacing={1}>
+              <Button onClick={() => setOpenWorkspaceModal(false)} size="small">
+                キャンセル
               </Button>
-            </Box>
+              <Button
+                onClick={onSubmitWorkspace}
+                variant="contained"
+                size="small"
+                disabled={!newWorkspaceName}
+              >
+                作成
+              </Button>
+            </Stack>
           </Stack>
         </Box>
       </Modal>
-    </>
+    </Box>
   )
 }

@@ -339,7 +339,7 @@ mod test {
 
         let workspace_repository = WorkspaceRepositoryForDb::new(pool.clone());
         let test_workspace = workspace_repository
-            .create(CreateWorkspace::new("test_todo_workspace".to_string(), vec!["todo_user@example.com".to_string()]))
+            .create(test_user_id, CreateWorkspace::new("test_todo_workspace".to_string(), true, vec!["todo_user@example.com".to_string()]))
             .await
             .expect("Failed to create test workspace");
         let test_workspace_id = test_workspace.id;

@@ -50,6 +50,12 @@ async fn main() {
         .await
         .expect(&format!("fail connect database, url is [{}]", database_url));
 
+    tracing::info!("running database migrations...");
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .expect("failed to run database migrations");
+
     let gemini_api_key = env::var("GROQ_API_KEY").unwrap_or_default();
 
     let app = create_app(
